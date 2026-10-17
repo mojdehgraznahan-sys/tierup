@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TierUp
 
-## Getting Started
+Peer tutoring for DMV private high schools. *Team Up, TierUp.*
 
-First, run the development server:
+Design reference: [`design_handoff_tierup/`](design_handoff_tierup/README.md) (the prototype is the source of truth for UI and behavior).
 
+## Stack
+Next.js 15 (App Router) · TypeScript · Tailwind v4 · Postgres 17 + Prisma 6 · Auth.js (Google) · Google Calendar/Meet · Resend · Vitest · Playwright
+
+## Local setup
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env        # already done if .env exists
+npm run db:start            # terminal 1: local Postgres on :5433 (data in .data/pg), no Docker needed
+npm run db:migrate          # apply migrations
+npm run db:seed             # 64 DMV schools, 80 courses, demo users (wipes data)
+npm run dev                 # terminal 2: http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Sign-in
+- **Google:** set `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET`. In Google Cloud, the OAuth client needs the redirect URI `http://localhost:3000/api/auth/callback/google` (plus your deployed URL later).
+- **Email link:** with `RESEND_API_KEY` empty, sign-in links, parent-consent links and teacher emails are printed to the dev server console. Any seeded demo user can sign in this way, e.g. `alex.p@lincoln-hs.test` (learner), `maya.r@lincoln-hs.test` (tutor), `ms.ortiz@lincoln-hs.test` (staff).
+- **Staff:** teachers become staff by signing in with an email on their school's `staffEmailDomains`. The demo schools use `lincoln-hs.test` and `grant-hs.test`; real schools have no domains yet, so their teachers go on a waitlist.
+- `ALLOW_DEMO_SCHOOLS=true` shows the demo schools in a production build (previews, e2e).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
+| Script | What it does |
+|---|---|
+| `db:start` | Runs an embedded Postgres 17 (the `embedded-postgres` package) |
+| `db:migrate` / `db:reset` | Prisma migrate dev / reset (reset re-runs the seed) |
+| `db:seed` | Wipes and reseeds the catalog plus the demo world |
+| `test` | Vitest unit + integration tests (needs `db:start`; uses a separate `tierup_test` database) |
+| `typecheck`, `lint`, `build` | The usual |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Layout
+```
+prisma/            schema.prisma, migrations/, seed/
+src/app/           routes ((public) landing, onboarding, (app) logged-in screens, api/)
+src/components/ui/ design-system primitives (Card, Button, Tag, Toast, …)
+src/server/        db client, services (business rules), policies, integrations
+src/lib/           shared utilities (school-local time, …)
+```
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Demo data
+Demo users live at the fictional **Lincoln High School (Demo)** and **Grant High School (Demo)** and use `.test` email addresses. Upcoming sessions are seeded relative to the day you run the seed, so they always land in the next week.

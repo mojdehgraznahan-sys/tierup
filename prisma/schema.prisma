@@ -1,0 +1,521 @@
+// TierUp data model. See design_handoff_tierup/BACKEND.md for the spec this follows.
+// Business rules live in src/server/services, not here.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum Role {
+  learner
+  tutor
+  staff
+}
+
+enum UsState {
+  DC
+  MD
+  VA
+}
+
+enum Format {
+  in_person
+  online
+}
+
+/// Coarse availability buckets chosen during onboarding. Each SchoolSlot belongs to one.
+enum TimeBlock {
+  before_school
+  lunch
+  after_school
+  evening
+  weekend
+}
+
+enum ConsentStatus {
+  pending
+  approved
+  declined
+}
+
+enum TutorSubjectStatus {
+  pending
+  approved
+  revoked
+}
+
+enum RequestStatus {
+  open
+  matched
+  expired
+  closed
+}
+
+enum SessionStatus {
+  /// Reserved for bookings that need tutor acceptance (dashboard inbox). See Phase 7.
+  requested
+  confirmed
+  completed
+  no_show
+  cancelled
+}
+
+enum SessionSource {
+  direct
+  request
+  match
+}
+
+enum Happened {
+  yes
+  no_show
+  cut_short
+}
+
+enum HourStatus {
+  logged
+  approved
+  rejected
+}
+
+enum ReportStatus {
+  new
+  dismissed
+  warned
+  paused
+}
+
+// ─── Auth.js (NextAuth v5) tables ───────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+/// Auth.js login session (not a tutoring session; see TutoringSession).
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Schools ────────────────────────────────────────────────────────────────
+
+model School {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  state             UsState
+  city              String?
+  /// Tutoring opens once a teacher (staff) signs up.
+  active            Boolean  @default(false)
+  /// Demo schools exist only for seed data and walkthroughs.
+  isDemo            Boolean  @default(false)
+  serviceHourGoal   Int      @default(40)
+  approvedSpaces    String[] @default([])
+  /// Teachers self-verify as staff by signing in with an email on one of these domains.
+  staffEmailDomains String[] @default([])
+  createdAt         DateTime @default(now())
+
+  slots    SchoolSlot[]
+  users    User[]
+  waitlist SchoolWaitlist[]
+}
+
+/// A bookable time row on the booking grid (e.g. "Lunch" at 12:10, "3:30 pm").
+model SchoolSlot {
+  id          String    @id @default(cuid())
+  schoolId    String
+  label       String
+  /// Minutes after midnight, school-local time (America/New_York).
+  startMinute Int
+  block       TimeBlock
+  sortOrder   Int
+
+  school       School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  availability AvailabilitySlot[]
+
+  @@unique([schoolId, startMinute])
+}
+
+/// "My school isn't listed" sign-ups.
+model SchoolWaitlist {
+  id         String   @id @default(cuid())
+  /// "student" or "staff"
+  kind       String   @default("student")
+  email      String
+  schoolName String?
+  schoolId   String?
+  createdAt  DateTime @default(now())
+
+  school School? @relation(fields: [schoolId], references: [id])
+}
+
+// ─── Users ──────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+
+  roles              Role[]      @default([])
+  schoolId           String?
+  /// 9–12 for students; null for staff.
+  grade              Int?
+  schoolEmail        String?
+  bio                String?
+  formats            Format[]    @default([])
+  /// Blocks picked in onboarding (incl. weekends, which have no grid slots yet).
+  availabilityBlocks TimeBlock[] @default([])
+  onboardedAt        DateTime?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  school          School?            @relation(fields: [schoolId], references: [id])
+  accounts        Account[]
+  authSessions    Session[]
+  availability    AvailabilitySlot[]
+  consent         ParentConsent?
+  tutorStatus     TutorStatus?
+  learnerSubjects LearnerSubject[]
+  tutorSubjects   TutorSubject[]     @relation("TutorSubjects")
+  endorsements    TutorSubject[]     @relation("Endorser")
+  decidedSubjects TutorSubject[]     @relation("SubjectDecider")
+  customSubjects  Subject[]
+
+  helpRequests     HelpRequest[]
+  requestResponses RequestResponse[]
+  requestPasses    RequestPass[]
+
+  learnerThreads  Thread[]          @relation("LearnerThreads")
+  tutorThreads    Thread[]          @relation("TutorThreads")
+  messages        Message[]
+  learnerSessions TutoringSession[] @relation("LearnerSessions")
+  tutorSessions   TutoringSession[] @relation("TutorSessions")
+  attendance      MeetAttendance[]
+  reviews         Review[]
+  hourLogs        HourLog[]         @relation("TutorHours")
+  reviewedHours   HourLog[]         @relation("HourReviewer")
+  reportsFiled    Report[]          @relation("Reporter")
+  reportsAgainst  Report[]          @relation("ReportedUser")
+  reportsHandled  Report[]          @relation("ReportHandler")
+
+  @@index([schoolId])
+}
+
+model AvailabilitySlot {
+  userId  String
+  /// 1 = Monday … 5 = Friday (6/0 reserved for weekends).
+  weekday Int
+  slotId  String
+
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slot SchoolSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+
+  @@id([userId, weekday, slotId])
+}
+
+model ParentConsent {
+  id            String        @id @default(cuid())
+  studentId     String        @unique
+  parentEmail   String
+  token         String        @unique
+  status        ConsentStatus @default(pending)
+  sendSummaries Boolean       @default(true)
+  lastSentAt    DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  decidedAt     DateTime?
+
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model TutorStatus {
+  tutorId   String  @id
+  paused    Boolean @default(false)
+  weeklyCap Int     @default(3)
+
+  tutor User @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+}
+
+// ─── Subjects ───────────────────────────────────────────────────────────────
+
+model Subject {
+  id          String   @id @default(cuid())
+  name        String
+  /// Catalog group (English, Math, …) or "Other" for custom courses.
+  group       String
+  sortOrder   Int      @default(0)
+  isCustom    Boolean  @default(false)
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  createdBy       User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  learnerSubjects LearnerSubject[]
+  tutorSubjects   TutorSubject[]
+  helpRequests    HelpRequest[]
+  threads         Thread[]
+  sessions        TutoringSession[]
+
+  @@unique([name, group, createdById])
+  @@index([group])
+}
+
+model LearnerSubject {
+  userId    String
+  subjectId String
+  dueDate   DateTime?
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@id([userId, subjectId])
+}
+
+/// A tutor's per-subject approval, endorsed by a teacher at their school.
+model TutorSubject {
+  id            String             @id @default(cuid())
+  tutorId       String
+  subjectId     String
+  /// Letter grade the tutor earned in the course, shown to staff.
+  courseGrade   String?
+  /// Email the tutor typed for their endorsing teacher; linked to endorserId once that teacher signs up.
+  endorserEmail String?
+  endorserId    String?
+  status        TutorSubjectStatus @default(pending)
+  createdAt     DateTime           @default(now())
+  decidedAt     DateTime?
+  decidedById   String?
+
+  tutor     User    @relation("TutorSubjects", fields: [tutorId], references: [id], onDelete: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  endorser  User?   @relation("Endorser", fields: [endorserId], references: [id], onDelete: SetNull)
+  decidedBy User?   @relation("SubjectDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@unique([tutorId, subjectId])
+  @@index([subjectId, status])
+}
+
+// ─── Requests ───────────────────────────────────────────────────────────────
+
+model HelpRequest {
+  id          String        @id @default(cuid())
+  learnerId   String
+  subjectId   String
+  description String
+  formats     Format[]      @default([])
+  status      RequestStatus @default(open)
+  createdAt   DateTime      @default(now())
+  expiresAt   DateTime
+
+  learner   User              @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  subject   Subject           @relation(fields: [subjectId], references: [id])
+  responses RequestResponse[]
+  passes    RequestPass[]
+  sessions  TutoringSession[]
+
+  @@index([status, expiresAt])
+}
+
+model RequestResponse {
+  id           String    @id @default(cuid())
+  requestId    String
+  tutorId      String
+  message      String
+  proposedTime DateTime?
+  createdAt    DateTime  @default(now())
+
+  request HelpRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  tutor   User        @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, tutorId])
+}
+
+/// A tutor dismissing a request from their dashboard inbox ("Pass").
+model RequestPass {
+  requestId String
+  tutorId   String
+  createdAt DateTime @default(now())
+
+  request HelpRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  tutor   User        @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@id([requestId, tutorId])
+}
+
+// ─── Messaging & sessions ───────────────────────────────────────────────────
+
+/// A conversation between a learner and a tutor about one subject.
+/// It is a pre-booking chat until a TutoringSession is attached; history is kept after booking.
+model Thread {
+  id        String   @id @default(cuid())
+  learnerId String
+  tutorId   String
+  subjectId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  learner  User             @relation("LearnerThreads", fields: [learnerId], references: [id], onDelete: Cascade)
+  tutor    User             @relation("TutorThreads", fields: [tutorId], references: [id], onDelete: Cascade)
+  subject  Subject          @relation(fields: [subjectId], references: [id])
+  session  TutoringSession?
+  messages Message[]
+  reports  Report[]
+
+  @@index([learnerId, tutorId, subjectId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  threadId  String
+  senderId  String
+  body      String
+  flagged   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  thread  Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender  User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  reports Report[]
+
+  @@index([threadId, createdAt])
+}
+
+model TutoringSession {
+  id                 String        @id @default(cuid())
+  threadId           String        @unique
+  learnerId          String
+  tutorId            String
+  subjectId          String
+  requestId          String?
+  source             SessionSource @default(direct)
+  startsAt           DateTime
+  durationMin        Int           @default(45)
+  format             Format
+  location           String?
+  meetUrl            String?
+  meetSpaceName      String?
+  calendarEventId    String?
+  status             SessionStatus @default(confirmed)
+  learnerConfirmedAt DateTime?
+  tutorNotes         String?
+  cancelledAt        DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  thread     Thread           @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  learner    User             @relation("LearnerSessions", fields: [learnerId], references: [id], onDelete: Cascade)
+  tutor      User             @relation("TutorSessions", fields: [tutorId], references: [id], onDelete: Cascade)
+  subject    Subject          @relation(fields: [subjectId], references: [id])
+  request    HelpRequest?     @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  attendance MeetAttendance[]
+  review     Review?
+  hourLog    HourLog?
+  reports    Report[]
+
+  @@index([tutorId, startsAt])
+  @@index([learnerId, startsAt])
+}
+
+model MeetAttendance {
+  id        String    @id @default(cuid())
+  sessionId String
+  userId    String
+  joinedAt  DateTime
+  leftAt    DateTime?
+
+  session TutoringSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  sessionId String   @unique
+  learnerId String
+  stars     Int
+  tags      String[] @default([])
+  comment   String?
+  happened  Happened @default(yes)
+  createdAt DateTime @default(now())
+
+  session TutoringSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  learner User            @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+}
+
+model HourLog {
+  id           String     @id @default(cuid())
+  sessionId    String     @unique
+  tutorId      String
+  hours        Decimal    @db.Decimal(5, 2)
+  status       HourStatus @default(logged)
+  loggedAt     DateTime   @default(now())
+  reviewedById String?
+  reviewedAt   DateTime?
+
+  session    TutoringSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tutor      User            @relation("TutorHours", fields: [tutorId], references: [id], onDelete: Cascade)
+  reviewedBy User?           @relation("HourReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([tutorId, status])
+}
+
+// ─── Moderation ─────────────────────────────────────────────────────────────
+
+model Report {
+  id            String       @id @default(cuid())
+  reporterId    String?
+  againstUserId String?
+  sessionId     String?
+  threadId      String?
+  messageId     String?
+  reason        String
+  /// True when raised by the automatic contact-info filter rather than a person.
+  automatic     Boolean      @default(false)
+  status        ReportStatus @default(new)
+  /// Audit trail of staff actions, e.g. ["warned", "notified_parents"].
+  actions       String[]     @default([])
+  handledById   String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  reporter    User?            @relation("Reporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  againstUser User?            @relation("ReportedUser", fields: [againstUserId], references: [id], onDelete: SetNull)
+  handledBy   User?            @relation("ReportHandler", fields: [handledById], references: [id], onDelete: SetNull)
+  session     TutoringSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  thread      Thread?          @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  message     Message?         @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+}
