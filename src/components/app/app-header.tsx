@@ -15,9 +15,11 @@ type Props = {
   name: string;
   email: string;
   image?: string | null;
+  /** Chats with unread messages (badge on "Sessions"). */
+  unread: number;
 };
 
-export function AppHeader({ mode, canSwitch, homeHref, name, email, image }: Props) {
+export function AppHeader({ mode, canSwitch, homeHref, name, email, image, unread }: Props) {
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
 
@@ -36,6 +38,12 @@ export function AppHeader({ mode, canSwitch, homeHref, name, email, image }: Pro
             className={clsx("text-sm no-underline", active ? "text-accent-700" : "text-ink hover:text-accent-700")}
           >
             {item.label}
+            {item.href === "/sessions" && unread > 0 && (
+              <span className="ml-1.5 inline-grid min-w-[18px] place-items-center rounded-full bg-accent-2 px-1 text-[11px] leading-[18px] font-semibold text-bg">
+                {unread}
+                <span className="sr-only"> unread</span>
+              </span>
+            )}
           </Link>
         );
       })}

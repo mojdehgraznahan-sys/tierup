@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Thread" ADD COLUMN     "lastMessageAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "learnerLastReadAt" TIMESTAMP(3),
+ADD COLUMN     "tutorLastReadAt" TIMESTAMP(3);

@@ -22,3 +22,9 @@ export function hasParentConsent(user: { roles: Role[]; consent: { status: Conse
   const isStudent = user.roles.includes("learner") || user.roles.includes("tutor");
   return !isStudent || user.consent?.status === "approved";
 }
+
+/**
+ * Open question for the client (BACKEND.md › Open questions #2): may students message before a
+ * parent approves? The spec allows it (only booking/tutoring is blocked). Flip to false to block.
+ */
+export const MESSAGING_BEFORE_CONSENT = true;

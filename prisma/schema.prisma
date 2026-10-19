@@ -379,12 +379,16 @@ model RequestPass {
 /// A conversation between a learner and a tutor about one subject.
 /// It is a pre-booking chat until a TutoringSession is attached; history is kept after booking.
 model Thread {
-  id        String   @id @default(cuid())
-  learnerId String
-  tutorId   String
-  subjectId String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String    @id @default(cuid())
+  learnerId         String
+  tutorId           String
+  subjectId         String
+  /// Last message time; drives thread ordering.
+  lastMessageAt     DateTime  @default(now())
+  learnerLastReadAt DateTime?
+  tutorLastReadAt   DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   learner  User             @relation("LearnerThreads", fields: [learnerId], references: [id], onDelete: Cascade)
   tutor    User             @relation("TutorThreads", fields: [tutorId], references: [id], onDelete: Cascade)

@@ -307,7 +307,7 @@ async function main() {
     });
   }
   // Maya's "Completed sessions" card: one unlogged, two waiting for sign-off.
-  await session({ learner: "alex", tutor: "maya", subject: "Algebra II", startsAt: at(0, "Tue-3:30"), format: "in_person", status: "completed", confirmed: true });
+  await session({ learner: "alex", tutor: "maya", subject: "Algebra II", startsAt: at(-1, "Tue-3:30"), format: "in_person", status: "completed", confirmed: true });
   await session({ learner: "jordan", tutor: "maya", subject: "Algebra II", startsAt: at(-1, "Thu-3:30"), durationMin: 60, format: "online", status: "completed", confirmed: true, hours: "logged" });
   await session({ learner: "casey", tutor: "maya", subject: "Precalculus", startsAt: at(-2, "Mon-3:30"), durationMin: 60, format: "online", status: "completed", confirmed: false, hours: "logged" });
 
@@ -357,6 +357,11 @@ async function main() {
       reason: "Off-platform contact", createdAt: new Date(now.getTime() - 3600000),
     },
   });
+
+  // Thread ordering follows the latest message.
+  await db.$executeRaw`
+    UPDATE "Thread" t SET "lastMessageAt" =
+      COALESCE((SELECT MAX(m."createdAt") FROM "Message" m WHERE m."threadId" = t.id), t."createdAt")`;
 
   const counts = {
     schools: await db.school.count(),
