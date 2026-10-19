@@ -24,7 +24,7 @@ export function AppHeader({ mode, canSwitch, homeHref, name, email, image, unrea
   const [pending, startTransition] = useTransition();
 
   return (
-    <nav className="flex flex-wrap items-center gap-x-[22px] gap-y-2 border-b border-divider px-4 py-3 sm:px-6">
+    <nav className="flex flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-divider px-4 py-3 sm:gap-x-[22px] sm:px-6">
       <div className="mr-auto">
         <Wordmark slogan href={homeHref} />
       </div>

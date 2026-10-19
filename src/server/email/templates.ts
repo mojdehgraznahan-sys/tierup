@@ -107,3 +107,29 @@ export function requestResponseEmail(opts: { to: string; tutorName: string; subj
     cta: { label: "See replies", url: opts.url },
   });
 }
+
+export function bookingEmail(opts: { to: string; otherName: string; subject: string; when: string; where: string; meetUrl: string | null; url: string }): Email {
+  return build(opts.to, `Booked: ${opts.subject} with ${opts.otherName}, ${opts.when}`, {
+    kicker: "Booked",
+    title: `You're set with ${opts.otherName}`,
+    paragraphs: [
+      `${opts.subject} · ${opts.when} · 45 min · ${opts.where}`,
+      ...(opts.meetUrl
+        ? [`Your one-time Google Meet: ${opts.meetUrl}`, "It opens 10 minutes before the start, only works for this session, and expires when it ends."]
+        : ["Meet in person at the spot above. Check in on the app when you arrive."]),
+    ],
+    cta: { label: "Go to session", url: opts.url },
+  });
+}
+
+export function parentBookingEmail(opts: { to: string; studentName: string; tutorName: string; subject: string; when: string; where: string }): Email {
+  return build(opts.to, `${opts.studentName} booked a ${opts.subject} session`, {
+    kicker: "Booking",
+    title: `${opts.studentName} booked a tutoring session`,
+    paragraphs: [
+      `${opts.subject} with ${opts.tutorName}, a teacher-approved student tutor.`,
+      `${opts.when} · 45 min · ${opts.where}`,
+      "Online sessions use a private, one-time Google Meet. In-person sessions happen only in approved school spaces.",
+    ],
+  });
+}

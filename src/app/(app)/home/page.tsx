@@ -92,7 +92,7 @@ export default async function StudentHomePage() {
               r.id,
               <div key={r.id} className="flex flex-col gap-2">
                 {r.responses.map((x) => (
-                  <ResponseCard key={x.id} response={x} subjectId={r.subjectId} />
+                  <ResponseCard key={x.id} response={x} subjectId={r.subjectId} requestId={r.id} />
                 ))}
               </div>,
             ]),

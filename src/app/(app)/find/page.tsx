@@ -117,7 +117,7 @@ async function Request({ userId, subjectId }: { userId: string; subjectId?: stri
               {latest.subjectName}: {latest.description}
             </span>
             {latest.responses.map((r) => (
-              <ResponseCard key={r.id} response={r} subjectId={latest.subjectId} />
+              <ResponseCard key={r.id} response={r} subjectId={latest.subjectId} requestId={latest.id} />
             ))}
             {latest.responses.length === 0 && (
               <Card className="border-dashed p-6 text-sm">

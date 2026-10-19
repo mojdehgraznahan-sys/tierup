@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
+    "@googleapis/calendar": "^16.0.0",
+    "@googleapis/meet": "^5.0.0",
     "@prisma/client": "^6.19.3",
     "clsx": "^2.1.1",
     "lucide-react": "^1.58.0",
