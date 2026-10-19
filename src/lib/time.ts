@@ -77,3 +77,10 @@ export function shortDay(instant: Date, tz = SCHOOL_TZ): string {
   const s = new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short", month: "short", day: "numeric" }).format(instant);
   return s.replace(",", "");
 }
+
+/** Minutes after midnight of an instant, school-local. */
+export function minuteOfDay(instant: Date, tz = SCHOOL_TZ): number {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", minute: "numeric", hourCycle: "h23" }).formatToParts(instant);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)!.value);
+  return get("hour") * 60 + get("minute");
+}

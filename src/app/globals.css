@@ -349,9 +349,23 @@
   .seg-opt + .seg-opt {
     border-left: 1px solid var(--color-divider);
   }
-  .seg-opt:has(input:checked) {
+  .seg-opt:has(input:checked),
+  .seg-opt[aria-current="page"] {
     background: var(--color-accent);
     color: var(--color-bg);
+  }
+  /* Segmented control built from links (e.g. Find help modes). */
+  a.seg-opt {
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+  a.seg-opt[aria-current="page"],
+  a.seg-opt[aria-current="page"]:hover {
+    color: var(--color-bg);
+  }
+  a.seg-opt:not([aria-current="page"]):hover {
+    background: color-mix(in srgb, var(--color-ink) 7%, transparent);
+    color: var(--color-ink);
   }
   .seg-opt:not(:has(input:checked)):hover {
     background: color-mix(in srgb, var(--color-ink) 7%, transparent);

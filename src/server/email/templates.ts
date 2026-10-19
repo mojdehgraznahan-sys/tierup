@@ -88,3 +88,22 @@ export function teacherEndorsementEmail(opts: {
     cta: { label: "Review the request", url: opts.url },
   });
 }
+
+export function newRequestEmail(opts: { to: string; subject: string; learnerLabel: string; description: string; url: string }): Email {
+  return build(opts.to, `New ${opts.subject} request on TierUp`, {
+    kicker: "New request",
+    title: `A ${opts.learnerLabel} needs help with ${opts.subject}`,
+    paragraphs: [`"${opts.description}"`, "Reply on TierUp if you can help. Requests expire after 48 hours."],
+    cta: { label: "See the request", url: opts.url },
+    footer: "You're receiving this because a teacher approved you to tutor this subject on TierUp.",
+  });
+}
+
+export function requestResponseEmail(opts: { to: string; tutorName: string; subject: string; message: string; url: string }): Email {
+  return build(opts.to, `${opts.tutorName} replied to your ${opts.subject} request`, {
+    kicker: "New reply",
+    title: `${opts.tutorName} can help with ${opts.subject}`,
+    paragraphs: [`"${opts.message}"`, "Book a time, message them first, or look at their profile."],
+    cta: { label: "See replies", url: opts.url },
+  });
+}
