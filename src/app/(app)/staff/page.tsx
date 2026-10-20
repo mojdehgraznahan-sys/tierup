@@ -13,6 +13,8 @@ import {
   warnReportAction,
 } from "./actions";
 import { ActionButton } from "@/components/staff/action-button";
+import { SchoolSettings } from "@/components/staff/school-settings";
+import { schoolSettings } from "@/server/services/school-settings";
 import { Card, Tag } from "@/components/ui/primitives";
 import { requireOnboarded } from "@/server/policies/session";
 import { approvalsQueue, hoursQueue, reportsQueue, sessionLog } from "@/server/services/moderation";
@@ -20,12 +22,13 @@ import { timeAgo } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Moderation" };
 
-type Tab = "approvals" | "hours" | "reports" | "log";
+type Tab = "approvals" | "hours" | "reports" | "log" | "school";
 const TABS: [Tab, string][] = [
   ["approvals", "Tutor approvals"],
   ["hours", "Service hours"],
   ["reports", "Reports"],
   ["log", "Session log"],
+  ["school", "School"],
 ];
 
 type Props = { searchParams: Promise<{ tab?: string }> };
@@ -54,6 +57,7 @@ export default async function StaffPage({ searchParams }: Props) {
       {tab === "hours" && <Hours staff={staff} />}
       {tab === "reports" && <Reports staff={staff} />}
       {tab === "log" && <SessionLog staff={staff} />}
+      {tab === "school" && <SchoolSettings {...await schoolSettings(staff)} />}
     </div>
   );
 }

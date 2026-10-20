@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { toActionResult } from "@/server/errors";
 import { requireOnboarded } from "@/server/policies/session";
 import * as m from "@/server/services/moderation";
+import * as ss from "@/server/services/school-settings";
+import type { z } from "zod";
 
 type Toast = { toast: string };
 
@@ -54,3 +56,23 @@ export async function notifyParentsAction(id: string) {
   return run((s) => m.notifyParents(s, id));
 }
 
+
+
+export async function setGoalAction(goal: number) {
+  return run((s) => ss.setServiceHourGoal(s, goal));
+}
+export async function setSpacesAction(spaces: string[]) {
+  return run((s) => ss.setSpaces(s, spaces));
+}
+export async function addSlotAction(input: z.input<typeof ss.slotSchema>) {
+  return run((s) => ss.addSlot(s, input));
+}
+export async function updateSlotAction(slotId: string, input: z.input<typeof ss.slotSchema>) {
+  return run((s) => ss.updateSlot(s, slotId, input));
+}
+export async function removeSlotAction(slotId: string) {
+  return run((s) => ss.removeSlot(s, slotId));
+}
+export async function setTutorCapAction(tutorId: string, cap: number) {
+  return run((s) => ss.setTutorCap(s, tutorId, cap));
+}
