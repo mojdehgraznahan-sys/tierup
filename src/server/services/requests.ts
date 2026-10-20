@@ -132,3 +132,51 @@ export async function respondToRequest(tutorId: string, requestId: string, messa
   );
   return response;
 }
+
+/**
+ * Tutor dashboard › Open requests in your subjects: open requests in subjects the tutor is
+ * approved for, from learners they can meet, that they haven't replied to or passed on.
+ */
+export async function tutorInbox(tutorId: string) {
+  const tutor = await db.user.findFirst({
+    where: { id: tutorId, ...discoverableTutor() },
+    include: { tutorSubjects: { where: discoverableTutorSubject() } },
+  });
+  if (!tutor) return { eligible: false as const, requests: [] };
+
+  const requests = await db.helpRequest.findMany({
+    where: {
+      ...isOpen(),
+      subjectId: { in: tutor.tutorSubjects.map((ts) => ts.subjectId) },
+      learnerId: { not: tutorId },
+      responses: { none: { tutorId } },
+      passes: { none: { tutorId } },
+    },
+    include: { subject: true, learner: { select: { name: true, grade: true, schoolId: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+  return {
+    eligible: true as const,
+    requests: requests
+      .filter((r) => effectiveFormats(tutor, r.learner.schoolId).length > 0)
+      .map((r) => {
+        const formats = effectiveFormats(tutor, r.learner.schoolId).filter((f) => r.formats.length === 0 || r.formats.includes(f));
+        return {
+          id: r.id,
+          subjectName: r.subject.name,
+          description: r.description,
+          learnerLabel: `${displayName(r.learner.name)}${r.learner.grade ? ` (${gradeLabel(r.learner.grade)})` : ""}`,
+          formatText: formats.includes("in_person") && formats.includes("online") ? "In person or online" : formats.includes("in_person") ? "In person" : "Online",
+          createdAt: r.createdAt,
+          expiresAt: r.expiresAt,
+        };
+      }),
+  };
+}
+
+/** Tutor hides a request from their inbox. */
+export async function passRequest(tutorId: string, requestId: string) {
+  const request = await db.helpRequest.findUnique({ where: { id: requestId } });
+  if (!request) throw new UserError("That request no longer exists.");
+  await db.requestPass.upsert({ where: { requestId_tutorId: { requestId, tutorId } }, create: { requestId, tutorId }, update: {} });
+}
