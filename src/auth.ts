@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "@/server/db";
 import { sendEmail } from "@/server/email/send";
 import { magicLinkEmail } from "@/server/email/templates";
+import { consume, SIGNIN_LIMITS } from "@/server/rate-limit";
 
 // Sign-in link by email, sent through our own mailer (Resend, or the console in dev).
 const emailLink: EmailConfig = {
@@ -28,6 +29,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     emailLink,
   ],
   callbacks: {
+    // Runs before Auth.js creates or emails a sign-in link, so this limit also covers direct API calls.
+    // Returning a URL makes Auth.js redirect there instead of sending.
+    async signIn({ user, email }) {
+      if (email?.verificationRequest && user.email) {
+        const { limit, windowMs } = SIGNIN_LIMITS.perEmail;
+        const r = await consume(`signin-email:${user.email.toLowerCase()}`, limit, windowMs);
+        if (!r.ok) return "/login?error=rate_limited";
+      }
+      return true;
+    },
     session({ session, user }) {
       session.user.id = user.id;
       return session;

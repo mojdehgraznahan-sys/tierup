@@ -175,6 +175,12 @@ export async function hoursDigest() {
   return { emailed };
 }
 
+/** Drops rate-limit counters whose window ended over a day ago. */
+export async function cleanupRateLimits(now = new Date()) {
+  const { count } = await db.rateLimit.deleteMany({ where: { windowStart: { lt: new Date(now.getTime() - 24 * 60 * MIN) } } });
+  return { deleted: count };
+}
+
 /** Frequent jobs, safe to run every few minutes. The digest runs separately, once a day. */
 export const JOBS = {
   "expire-requests": expireRequests,
@@ -183,7 +189,8 @@ export const JOBS = {
   "report-alerts": alertStaffOfReports,
   "unread-messages": emailUnreadMessages,
   "hours-digest": hoursDigest,
+  "cleanup-rate-limits": cleanupRateLimits,
 } as const;
 
 export type JobName = keyof typeof JOBS;
-export const FREQUENT: JobName[] = ["expire-requests", "reminders", "end-meetings", "report-alerts", "unread-messages"];
+export const FREQUENT: JobName[] = ["expire-requests", "reminders", "end-meetings", "report-alerts", "unread-messages", "cleanup-rate-limits"];

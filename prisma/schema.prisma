@@ -545,3 +545,10 @@ model Report {
 
   @@index([status])
 }
+
+/// Fixed-window counters for rate limits (e.g. sign-in links per email / per IP).
+model RateLimit {
+  key         String   @id
+  windowStart DateTime
+  count       Int
+}
