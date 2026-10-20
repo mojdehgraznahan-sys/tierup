@@ -121,10 +121,12 @@ export function AppHeader({
           <div className="card absolute right-0 z-30 mt-2 w-60 gap-1 bg-bg p-3 shadow-lg">
             <b className="text-sm">{name}</b>
             <span className="card-meta truncate">{email}</span>
-            <form
-              action={signOutAction}
-              className="mt-2 border-t border-divider pt-2"
-            >
+            <div className="mt-2 border-t border-divider pt-2">
+              <Link href="/settings" className="btn btn-ghost w-full justify-start no-underline">
+                Settings
+              </Link>
+            </div>
+            <form action={signOutAction}>
               <button
                 type="submit"
                 className="btn btn-ghost w-full justify-start"

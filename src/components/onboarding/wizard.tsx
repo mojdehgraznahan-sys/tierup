@@ -368,7 +368,7 @@ export function OnboardingWizard(props: Props) {
                 ))}
               </div>
             </div>
-            <p className="muted m-0 text-[13px]">You can fine-tune exact days and times later from the booking grid.</p>
+            <p className="muted m-0 text-[13px]">You can fine-tune exact days and times later in Settings.</p>
           </>
         )}
 
