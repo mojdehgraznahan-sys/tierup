@@ -1,18 +1,12 @@
 // The production catalog: DMV schools (with confirmed staff domains), default bell-time slots,
 // and the course list. Safe to run repeatedly against a live database: it only adds what's
 // missing and never deletes or overwrites data people have changed.
-import type { PrismaClient, TimeBlock } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
+import { DEFAULT_SLOTS, DEFAULT_SPACES } from "../../src/lib/school-defaults";
 import { DMV_SCHOOLS } from "./schools";
 import { SUBJECT_GROUPS } from "./subjects";
 
-export const DEFAULT_SLOTS: { label: string; startMinute: number; block: TimeBlock }[] = [
-  { label: "7:30 am", startMinute: 7 * 60 + 30, block: "before_school" },
-  { label: "Lunch", startMinute: 12 * 60 + 10, block: "lunch" },
-  { label: "3:30 pm", startMinute: 15 * 60 + 30, block: "after_school" },
-  { label: "4:30 pm", startMinute: 16 * 60 + 30, block: "after_school" },
-  { label: "7:00 pm", startMinute: 19 * 60, block: "evening" },
-];
-export const DEFAULT_SPACES = ["Library", "Room 204 (Math)", "Learning commons"];
+export { DEFAULT_SLOTS, DEFAULT_SPACES };
 
 export async function seedCatalog(db: PrismaClient) {
   let schoolsAdded = 0;

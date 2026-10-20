@@ -116,8 +116,12 @@ gcloud run deploy tierup --region=$REGION \
   --service-account=tierup-run@$PROJECT_ID.iam.gserviceaccount.com \
   --allow-unauthenticated --min-instances=0 --max-instances=3 --memory=512Mi \
   --set-secrets=DATABASE_URL=DATABASE_URL:latest,AUTH_SECRET=AUTH_SECRET:latest,AUTH_GOOGLE_SECRET=AUTH_GOOGLE_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,CRON_SECRET=CRON_SECRET:latest \
-  --set-env-vars="APP_URL=$APP_URL,AUTH_GOOGLE_ID=<client id>,EMAIL_FROM=TierUp <noreply@yourdomain.org>,MEET_PROVIDER=fake,ALLOW_FAKE_MEET=true"
+  --set-env-vars="APP_URL=$APP_URL,AUTH_GOOGLE_ID=<client id>,EMAIL_FROM=TierUp <noreply@yourdomain.org>,MEET_PROVIDER=fake,ALLOW_FAKE_MEET=true,ADMIN_EMAILS=you@yourdomain.org"
 ```
+
+`ADMIN_EMAILS` lists who can open `/admin` (schools, staff email domains, the waitlist). For several
+admins, gcloud needs a different list separator because it splits on commas:
+`gcloud run services update tierup --region=$REGION --update-env-vars="^;^ADMIN_EMAILS=a@x.org,b@x.org"`.
 
 Until Google Meet is set up (§10), `ALLOW_FAKE_MEET=true` lets the app run with placeholder Meet links.
 **Treat it as a preview**: don't let real students book online sessions until §10 is done.

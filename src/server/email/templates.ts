@@ -285,3 +285,15 @@ export function unreadMessagesEmail(opts: { to: string; fromName: string; subjec
     cta: { label: "Open chat", url: opts.url },
   });
 }
+
+export function staffDomainVerifiedEmail(opts: { to: string; schoolName: string; url: string }): Email {
+  return build(opts.to, `You can now join TierUp as ${opts.schoolName} staff`, {
+    kicker: "Staff sign-up open",
+    title: `${opts.schoolName} is verified`,
+    paragraphs: [
+      `Thanks for waiting. Staff at ${opts.schoolName} can now sign up with their school email.`,
+      "The first teacher to join opens tutoring for your students.",
+    ],
+    cta: { label: "Sign up as staff", url: opts.url },
+  });
+}

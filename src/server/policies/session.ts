@@ -1,9 +1,10 @@
 import "server-only";
 import { cache } from "react";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { Role } from "@prisma/client";
 import { auth } from "@/auth";
 import { db } from "@/server/db";
+import { isAdminEmail } from "./admin";
 import { homePathFor } from "./rules";
 
 export { hasParentConsent, homePathFor, safeCallbackPath } from "./rules";
@@ -35,5 +36,12 @@ export async function requireOnboarded(roles?: Role[]): Promise<CurrentUser> {
   const user = await requireUser();
   if (!user.onboardedAt) redirect("/onboarding");
   if (roles && !roles.some((r) => user.roles.includes(r))) redirect(homePathFor(user));
+  return user;
+}
+
+/** TierUp admins (ADMIN_EMAILS). They don't need student/staff onboarding. */
+export async function requireAdmin(): Promise<CurrentUser> {
+  const user = await requireUser("/admin");
+  if (!isAdminEmail(user.email) || !user.emailVerified) notFound();
   return user;
 }

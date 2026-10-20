@@ -176,15 +176,20 @@ model SchoolSlot {
 
 /// "My school isn't listed" sign-ups.
 model SchoolWaitlist {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   /// "student" or "staff"
-  kind       String   @default("student")
+  kind       String    @default("student")
   email      String
   schoolName String?
   schoolId   String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
+  /// Set when a TierUp admin handles the entry ("verified", "school_added", "dismissed").
+  resolvedAt DateTime?
+  resolution String?
 
   school School? @relation(fields: [schoolId], references: [id])
+
+  @@index([resolvedAt])
 }
 
 // ─── Users ──────────────────────────────────────────────────────────────────
