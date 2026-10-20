@@ -35,3 +35,22 @@ export async function upcomingForLearner(learnerId: string) {
       };
     });
 }
+
+/** Learner's sessions that have ended but haven't been marked complete yet ("How did it go?"). */
+export async function awaitingReview(learnerId: string, now = new Date()) {
+  const sessions = await db.tutoringSession.findMany({
+    where: { learnerId, status: "confirmed", startsAt: { lt: now }, review: { is: null } },
+    include: { tutor: { select: { name: true } }, subject: true, learner: { select: { school: { include: { slots: true } } } } },
+    orderBy: { startsAt: "desc" },
+    take: 5,
+  });
+  return sessions
+    .filter((s) => s.startsAt.getTime() + s.durationMin * 60000 <= now.getTime())
+    .map((s) => ({
+      id: s.id,
+      threadId: s.threadId,
+      subjectName: s.subject.name,
+      tutorName: displayName(s.tutor.name),
+      when: sessionWhen(s.startsAt, new Map((s.learner.school?.slots ?? []).map((sl) => [sl.startMinute, sl.label]))),
+    }));
+}

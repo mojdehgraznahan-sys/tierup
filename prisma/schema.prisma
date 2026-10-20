@@ -219,18 +219,19 @@ model User {
   requestResponses RequestResponse[]
   requestPasses    RequestPass[]
 
-  learnerThreads  Thread[]          @relation("LearnerThreads")
-  tutorThreads    Thread[]          @relation("TutorThreads")
-  messages        Message[]
-  learnerSessions TutoringSession[] @relation("LearnerSessions")
-  tutorSessions   TutoringSession[] @relation("TutorSessions")
-  attendance      MeetAttendance[]
-  reviews         Review[]
-  hourLogs        HourLog[]         @relation("TutorHours")
-  reviewedHours   HourLog[]         @relation("HourReviewer")
-  reportsFiled    Report[]          @relation("Reporter")
-  reportsAgainst  Report[]          @relation("ReportedUser")
-  reportsHandled  Report[]          @relation("ReportHandler")
+  learnerThreads    Thread[]          @relation("LearnerThreads")
+  tutorThreads      Thread[]          @relation("TutorThreads")
+  messages          Message[]
+  learnerSessions   TutoringSession[] @relation("LearnerSessions")
+  tutorSessions     TutoringSession[] @relation("TutorSessions")
+  cancelledSessions TutoringSession[] @relation("CancelledSessions")
+  attendance        MeetAttendance[]
+  reviews           Review[]
+  hourLogs          HourLog[]         @relation("TutorHours")
+  reviewedHours     HourLog[]         @relation("HourReviewer")
+  reportsFiled      Report[]          @relation("Reporter")
+  reportsAgainst    Report[]          @relation("ReportedUser")
+  reportsHandled    Report[]          @relation("ReportHandler")
 
   @@index([schoolId])
 }
@@ -434,18 +435,21 @@ model TutoringSession {
   learnerConfirmedAt DateTime?
   tutorNotes         String?
   cancelledAt        DateTime?
+  cancelledById      String?
+  cancelReason       String?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  thread     Thread           @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  learner    User             @relation("LearnerSessions", fields: [learnerId], references: [id], onDelete: Cascade)
-  tutor      User             @relation("TutorSessions", fields: [tutorId], references: [id], onDelete: Cascade)
-  subject    Subject          @relation(fields: [subjectId], references: [id])
-  request    HelpRequest?     @relation(fields: [requestId], references: [id], onDelete: SetNull)
-  attendance MeetAttendance[]
-  review     Review?
-  hourLog    HourLog?
-  reports    Report[]
+  thread      Thread           @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  cancelledBy User?            @relation("CancelledSessions", fields: [cancelledById], references: [id], onDelete: SetNull)
+  learner     User             @relation("LearnerSessions", fields: [learnerId], references: [id], onDelete: Cascade)
+  tutor       User             @relation("TutorSessions", fields: [tutorId], references: [id], onDelete: Cascade)
+  subject     Subject          @relation(fields: [subjectId], references: [id])
+  request     HelpRequest?     @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  attendance  MeetAttendance[]
+  review      Review?
+  hourLog     HourLog?
+  reports     Report[]
 
   @@index([tutorId, startsAt])
   @@index([learnerId, startsAt])
@@ -468,7 +472,8 @@ model Review {
   id        String   @id @default(cuid())
   sessionId String   @unique
   learnerId String
-  stars     Int
+  /// 1–5; null when the session didn't happen (no-show).
+  stars     Int?
   tags      String[] @default([])
   comment   String?
   happened  Happened @default(yes)

@@ -28,7 +28,7 @@ const threadInclude = {
   learner: { select: { id: true, name: true, schoolId: true, school: { include: { slots: true } } } },
   tutor: { select: { id: true, name: true, schoolId: true, tutorStatus: true } },
   subject: true,
-  session: true,
+  session: { include: { review: true, cancelledBy: { select: { id: true, name: true } } } },
 } as const;
 
 /**
@@ -149,6 +149,14 @@ export async function threadView(viewer: Viewer, threadId: string) {
           format: s.format,
           location: s.location,
           meetUrl: s.meetUrl,
+          started: s.startsAt.getTime() <= Date.now(),
+          tutorNotes: role === "learner" ? null : s.tutorNotes,
+          cancelledBy: s.cancelledBy ? displayName(s.cancelledBy.name) : null,
+          cancelledByMe: s.cancelledById === viewer.id,
+          cancelReason: s.cancelReason,
+          review: s.review
+            ? { happened: s.review.happened, stars: s.review.stars, tags: s.review.tags, comment: s.review.comment }
+            : null,
         }
       : null,
     messages: messages.reverse().map((m) => toDTO(viewer, m)),

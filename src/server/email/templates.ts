@@ -133,3 +133,40 @@ export function parentBookingEmail(opts: { to: string; studentName: string; tuto
     ],
   });
 }
+
+export function sessionConfirmedEmail(opts: { to: string; learnerName: string; subject: string; when: string; hours: string; url: string }): Email {
+  return build(opts.to, `${opts.learnerName} confirmed your ${opts.subject} session`, {
+    kicker: "Session done",
+    title: "Nice work! Log your service hours",
+    paragraphs: [
+      `${opts.learnerName} confirmed your ${opts.subject} session on ${opts.when}.`,
+      `Check it off on your dashboard to send ${opts.hours} h to your teacher for sign-off.`,
+    ],
+    cta: { label: "Log my hours", url: opts.url },
+    footer: "You're receiving this because you tutor on TierUp.",
+  });
+}
+
+export function sessionSummaryEmail(opts: { to: string; studentName: string; tutorName: string; subject: string; when: string; happened: string; notes: string | null }): Email {
+  return build(opts.to, `Session summary: ${opts.studentName}'s ${opts.subject} session`, {
+    kicker: "Session summary",
+    title: `${opts.studentName}'s ${opts.subject} session`,
+    paragraphs: [
+      `${opts.when} with ${opts.tutorName}. ${opts.happened}`,
+      ...(opts.notes ? [`Tutor's notes: "${opts.notes}"`] : []),
+      "You get these summaries because you opted in when you gave consent.",
+    ],
+  });
+}
+
+export function sessionCancelledEmail(opts: { to: string; byName: string; subject: string; when: string; reason: string | null; url: string }): Email {
+  return build(opts.to, `Cancelled: ${opts.subject}, ${opts.when}`, {
+    kicker: "Cancelled",
+    title: `${opts.byName} cancelled ${opts.subject}`,
+    paragraphs: [
+      `The session on ${opts.when} is cancelled.${opts.reason ? ` Reason: "${opts.reason}"` : ""}`,
+      "Any Google Meet link for it no longer works. You can book a new time on TierUp.",
+    ],
+    cta: { label: "Open TierUp", url: opts.url },
+  });
+}

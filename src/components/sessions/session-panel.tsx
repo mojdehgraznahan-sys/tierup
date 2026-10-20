@@ -46,6 +46,7 @@ export function SessionPanel({ view }: { view: View }) {
           </div>
           {s.format === "online" && s.meetUrl && s.status === "confirmed" && <MeetBox url={s.meetUrl} startsAt={s.startsAt} durationMin={s.durationMin} />}
           {s.format === "in_person" && <span className="text-sm">📍 {s.location ?? "School"}</span>}
+          <Outcome session={s} role={view.role} />
         </>
       )}
 
@@ -55,6 +56,39 @@ export function SessionPanel({ view }: { view: View }) {
         </div>
       )}
     </aside>
+  );
+}
+
+const HAPPENED_LABEL = { yes: "It happened", cut_short: "Cut short", no_show: "Tutor didn't show" } as const;
+
+/** Read-only wrap-up: cancellation, the learner's review, and the tutor's notes. */
+function Outcome({ session: s, role }: { session: NonNullable<View["session"]>; role: View["role"] }) {
+  return (
+    <>
+      {s.status === "cancelled" && (
+        <p className="muted m-0 text-[13px]">
+          Cancelled by {s.cancelledByMe ? "you" : (s.cancelledBy ?? "a participant")}
+          {s.cancelReason ? `: "${s.cancelReason}"` : "."}
+        </p>
+      )}
+      {s.review && (
+        <Card className="gap-1 p-3">
+          <span className="card-meta">{role === "learner" ? "Your review" : "Learner's review"}</span>
+          <span className="text-sm">
+            {s.review.stars ? `${"★".repeat(s.review.stars)}${"☆".repeat(5 - s.review.stars)} · ` : ""}
+            {HAPPENED_LABEL[s.review.happened]}
+          </span>
+          {s.review.tags.length > 0 && <span className="muted text-xs">{s.review.tags.join(" · ")}</span>}
+          {s.review.comment && <span className="text-[13px]">&ldquo;{s.review.comment}&rdquo;</span>}
+        </Card>
+      )}
+      {role !== "learner" && s.tutorNotes && (
+        <Card className="gap-1 p-3">
+          <span className="card-meta">Tutor&apos;s notes</span>
+          <span className="text-[13px] whitespace-pre-wrap">{s.tutorNotes}</span>
+        </Card>
+      )}
+    </>
   );
 }
 

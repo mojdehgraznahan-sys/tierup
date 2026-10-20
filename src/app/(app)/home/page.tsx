@@ -8,7 +8,7 @@ import { ButtonLink, Card, Tag } from "@/components/ui/primitives";
 import { requireOnboarded } from "@/server/policies/session";
 import { tutorsForMyClasses } from "@/server/services/discovery";
 import { myOpenRequests } from "@/server/services/requests";
-import { upcomingForLearner } from "@/server/services/sessions";
+import { awaitingReview, upcomingForLearner } from "@/server/services/sessions";
 import { joinWindow, sessionFormatLabel } from "@/lib/format";
 import { longDate } from "@/lib/time";
 import { firstName } from "@/lib/names";
@@ -18,7 +18,8 @@ export const metadata: Metadata = { title: "Home" };
 export default async function StudentHomePage() {
   const user = await requireOnboarded(["learner"]);
   const viewer = { id: user.id, schoolId: user.schoolId };
-  const [upcoming, requests, tutors] = await Promise.all([
+  const [toReview, upcoming, requests, tutors] = await Promise.all([
+    awaitingReview(user.id),
     upcomingForLearner(user.id),
     myOpenRequests(user.id),
     tutorsForMyClasses(viewer),
@@ -44,6 +45,22 @@ export default async function StudentHomePage() {
       )}
       {!user.schoolId && (
         <p className="muted mt-0 mb-6 text-sm">Your school is on the waitlist. You can still meet tutors from other schools online.</p>
+      )}
+
+      {toReview.length > 0 && (
+        <Card kicker="How did it go?" className="mb-6 gap-2">
+          {toReview.map((s) => (
+            <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-divider pt-2 first-of-type:border-t-0 first-of-type:pt-0">
+              <span className="text-sm">
+                <b>{s.subjectName}</b> with {s.tutorName} · {s.when}
+              </span>
+              <ButtonLink href={`/sessions/${s.threadId}`} className="text-[13px]">
+                Review session
+              </ButtonLink>
+            </div>
+          ))}
+          <span className="muted text-xs">Marking a session complete confirms your tutor&apos;s service hours.</span>
+        </Card>
       )}
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-6">

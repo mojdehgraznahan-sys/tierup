@@ -291,6 +291,12 @@ async function main() {
     messages: [["alex", "Test is Friday 😬"], ["priya", "No stress. I'll send the Meet link reminder at lunch"]],
   });
 
+  // Ended last week but not marked complete yet: Alex's "How did it go?" prompt.
+  await session({
+    learner: "alex", tutor: "lena", subject: "Algebra II", startsAt: at(-1, "Fri-12:10"), format: "online",
+    messages: [["lena", "Bring your last quiz and we'll go through it."]],
+  });
+
   // Maya's history: 15 approved sessions (14.5 h) with 12 reviews averaging 4.9.
   const learnersCycle = ["jordan", "casey", "riley", "samw", "alex"];
   const reviewTexts = [
