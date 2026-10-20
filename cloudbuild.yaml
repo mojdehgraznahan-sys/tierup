@@ -9,7 +9,7 @@ substitutions:
   _REPO: tierup
 
 steps:
-  # 1. Apply pending Prisma migrations (needs the direct, non-pooled Neon URL).
+  # 1. Apply pending Prisma migrations (DIRECT_URL = Supabase session pooler).
   - id: migrate
     name: node:20-bookworm-slim
     entrypoint: bash

@@ -9,9 +9,10 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  /// App connection. On Neon: the pooled URL (host contains "-pooler") with ?sslmode=require&pgbouncer=true.
+  /// App connection. On Supabase: the transaction pooler (port 6543) with ?pgbouncer=true&connection_limit=1.
   url       = env("DATABASE_URL")
-  /// Migrations need a direct connection. On Neon: the non-pooler URL. Locally: same as DATABASE_URL.
+  /// Migrations need a session-level connection. On Supabase: the session pooler (port 5432), which works
+  /// over IPv4 from Cloud Build/Cloud Run. Locally: same as DATABASE_URL.
   directUrl = env("DIRECT_URL")
 }
 

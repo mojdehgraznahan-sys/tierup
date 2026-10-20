@@ -24,7 +24,7 @@ npm run dev                 # terminal 2: http://localhost:3000
 - `ALLOW_DEMO_SCHOOLS=true` shows the demo schools in a production build (previews, e2e).
 
 ## Deploying
-See [DEPLOY.md](DEPLOY.md): Google Cloud Run + Neon Postgres, Resend, Google sign-in, Google Meet and Cloud Scheduler.
+See [DEPLOY.md](DEPLOY.md): Google Cloud Run + Supabase Postgres, Resend, Google sign-in, Google Meet and Cloud Scheduler.
 
 ## Background jobs
 Request expiry, 1-hour session reminders, ending Meet conferences after sessions, staff report alerts and

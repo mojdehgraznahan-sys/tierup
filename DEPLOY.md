@@ -1,6 +1,6 @@
 # Deploying TierUp to Google Cloud
 
-**Setup:** Cloud Run (app, `us-east4`) + Neon (Postgres, free tier for now) + Resend (email) +
+**Setup:** Cloud Run (app, `us-east4`) + Supabase (Postgres) + Resend (email) +
 Cloud Scheduler (background jobs) + Cloud Build (deploys on every push to `main`).
 
 Work through the steps in order; each command is copy-paste. You need the
@@ -18,23 +18,26 @@ export REGION=us-east4
 
 ---
 
-## 1. Neon (database)
+## 1. Supabase (database)
 
-1. Create a project at neon.tech: Postgres **17**, region **AWS US East (N. Virginia)** (close to `us-east4`).
-2. **Connection details**, copy both strings:
-   - **Pooled** (host contains `-pooler`) → `DATABASE_URL`, ending in `?sslmode=require&pgbouncer=true`
-   - **Direct** (no `-pooler`) → `DIRECT_URL`, ending in `?sslmode=require`
-3. Create the schema and load the catalog from your machine:
+1. Create a project on a paid plan (daily backups, no pausing), region **East US (North Virginia)**,
+   close to `us-east4`. Sign Supabase's DPA in the dashboard; schools will ask, since we store minors' data.
+2. **Connect → Connection string**, copy two URLs (both use the pooler host):
+   - **Transaction pooler** (port **6543**) → `DATABASE_URL`, ending in `?pgbouncer=true&connection_limit=1`
+   - **Session pooler** (port **5432**) → `DIRECT_URL`
+   Don't use the "Direct connection" string: it's IPv6-only unless you buy Supabase's IPv4 add-on, and
+   Cloud Build/Cloud Run connect over IPv4.
+3. TierUp doesn't use Supabase Auth, Storage or Realtime; leave them off. Access rules are enforced in
+   the app's server code.
+4. Create the schema and load the catalog from your machine:
 
 ```bash
-DATABASE_URL="<pooled>" DIRECT_URL="<direct>" npm run db:deploy          # migrations
-DATABASE_URL="<pooled>" DIRECT_URL="<direct>" npm run db:seed:catalog    # 64 schools, 80 courses, slots, staff domains
+DATABASE_URL="<transaction pooler>" DIRECT_URL="<session pooler>" npm run db:deploy          # migrations
+DATABASE_URL="<transaction pooler>" DIRECT_URL="<session pooler>" npm run db:seed:catalog    # 64 schools, 80 courses, slots, staff domains
 ```
 
 `db:seed:catalog` is safe to re-run (it only adds what's missing). Never run `npm run db:seed` here: it
 wipes the database, and it refuses non-local hosts.
-
-> **Before real students:** the free tier has limited backups. Upgrade Neon, or move to Cloud SQL (§11).
 
 ## 2. Google Cloud project
 
@@ -59,8 +62,8 @@ echo $APP_URL
 ```bash
 secret() { printf '%s' "$2" | gcloud secrets create "$1" --data-file=- --replication-policy=automatic; }
 
-secret DATABASE_URL       "<Neon pooled URL>"
-secret DIRECT_URL         "<Neon direct URL>"
+secret DATABASE_URL       "<Supabase transaction pooler URL>"
+secret DIRECT_URL         "<Supabase session pooler URL>"
 secret AUTH_SECRET        "$(openssl rand -base64 33)"
 secret AUTH_GOOGLE_SECRET "<Google OAuth client secret>"
 secret RESEND_API_KEY     "<Resend API key>"          # §6
@@ -185,12 +188,12 @@ gcloud run services update tierup --region=$REGION \
 3. Book a test online session and check: both students get a calendar invite, the link opens, and an
    uninvited account has to knock. (This path is built but hasn't been run against live Google yet.)
 
-## 11. Later: move from Neon to Cloud SQL
+## 11. Later: move to Cloud SQL (optional)
 
-When real students arrive: create a Cloud SQL for PostgreSQL 17 instance in `us-east4` with automated
-backups; restore a `pg_dump` from Neon into it; point the `DATABASE_URL`/`DIRECT_URL` secrets at it
-(via the Cloud SQL connector, `--add-cloudsql-instances` on the service); redeploy. Migrations in Cloud
-Build then need the Cloud SQL Auth Proxy step. Ask before doing this; it's a short, planned cutover.
+If you want everything inside GCP: create a Cloud SQL for PostgreSQL 17 instance in `us-east4` with
+automated backups, restore a `pg_dump` from Supabase, point the `DATABASE_URL`/`DIRECT_URL` secrets at it
+(Cloud SQL connector, `--add-cloudsql-instances` on the service) and redeploy. Migrations in Cloud Build
+then need the Cloud SQL Auth Proxy step. It's a short, planned cutover.
 
 ## 12. Custom domain
 
@@ -210,4 +213,4 @@ external load balancer. Then update `APP_URL`, the OAuth redirect URI and the Sc
 ## Cost at pilot scale (rough)
 
 Cloud Run, Cloud Build, Scheduler (3 jobs free), Artifact Registry and Secret Manager: about **$0–2/month**.
-Neon free tier: $0. Resend free tier: 3,000 emails/month. Cloud SQL later: about $10–15/month.
+Supabase: your plan's price. Resend free tier: 3,000 emails/month.
