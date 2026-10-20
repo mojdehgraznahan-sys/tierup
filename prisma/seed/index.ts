@@ -371,6 +371,11 @@ async function main() {
     UPDATE "Thread" t SET "lastMessageAt" =
       COALESCE((SELECT MAX(m."createdAt") FROM "Message" m WHERE m."threadId" = t.id), t."createdAt")`;
 
+  // Background jobs shouldn't send emails about demo history on their first run.
+  await db.report.updateMany({ data: { staffNotifiedAt: now } });
+  await db.thread.updateMany({ data: { learnerEmailedAt: now, tutorEmailedAt: now } });
+  await db.tutoringSession.updateMany({ where: { startsAt: { lt: now } }, data: { reminderSentAt: now, meetEndedAt: now } });
+
   const counts = {
     schools: await db.school.count(),
     subjects: await db.subject.count(),

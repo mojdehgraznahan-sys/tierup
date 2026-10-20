@@ -388,6 +388,9 @@ model Thread {
   lastMessageAt     DateTime  @default(now())
   learnerLastReadAt DateTime?
   tutorLastReadAt   DateTime?
+  /// Last unread-message email per side, so a busy chat sends at most one email per batch.
+  learnerEmailedAt  DateTime?
+  tutorEmailedAt    DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -437,6 +440,10 @@ model TutoringSession {
   cancelledAt        DateTime?
   cancelledById      String?
   cancelReason       String?
+  /// Set by the reminder job (1 h before start), so each session is reminded once.
+  reminderSentAt     DateTime?
+  /// Set once the Meet conference has been ended after the session.
+  meetEndedAt        DateTime?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -503,23 +510,25 @@ model HourLog {
 // ─── Moderation ─────────────────────────────────────────────────────────────
 
 model Report {
-  id            String       @id @default(cuid())
+  id              String       @id @default(cuid())
   /// Human-friendly number shown to staff ("Report #31").
-  number        Int          @unique @default(autoincrement())
-  reporterId    String?
-  againstUserId String?
-  sessionId     String?
-  threadId      String?
-  messageId     String?
-  reason        String
+  number          Int          @unique @default(autoincrement())
+  reporterId      String?
+  againstUserId   String?
+  sessionId       String?
+  threadId        String?
+  messageId       String?
+  reason          String
   /// True when raised by the automatic contact-info filter rather than a person.
-  automatic     Boolean      @default(false)
-  status        ReportStatus @default(new)
+  automatic       Boolean      @default(false)
+  status          ReportStatus @default(new)
   /// Audit trail of staff actions, e.g. ["warned", "notified_parents"].
-  actions       String[]     @default([])
-  handledById   String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  actions         String[]     @default([])
+  handledById     String?
+  /// When school staff were emailed about this report.
+  staffNotifiedAt DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   reporter    User?            @relation("Reporter", fields: [reporterId], references: [id], onDelete: SetNull)
   againstUser User?            @relation("ReportedUser", fields: [againstUserId], references: [id], onDelete: SetNull)

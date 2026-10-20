@@ -229,3 +229,59 @@ export function reportParentEmail(opts: { to: string; studentName: string; schoo
     ],
   });
 }
+
+export function reminderEmail(opts: { to: string; otherName: string; subject: string; when: string; where: string; meetUrl: string | null; url: string }): Email {
+  return build(opts.to, `Starting soon: ${opts.subject} with ${opts.otherName}`, {
+    kicker: "Reminder",
+    title: `${opts.subject} with ${opts.otherName} in about an hour`,
+    paragraphs: [
+      `${opts.when} · ${opts.where}`,
+      opts.meetUrl ? `Join from TierUp; the one-time Meet opens 10 minutes before the start.` : "Meet at the spot above. Check in on the app when you arrive.",
+    ],
+    cta: { label: "Go to session", url: opts.url },
+  });
+}
+
+export function requestExpiredEmail(opts: { to: string; subject: string; description: string; replies: number; url: string }): Email {
+  return build(opts.to, `Your ${opts.subject} request expired`, {
+    kicker: "Request expired",
+    title: `Your ${opts.subject} request closed after 48 hours`,
+    paragraphs: [
+      `"${opts.description}"`,
+      opts.replies ? `It got ${opts.replies} repl${opts.replies === 1 ? "y" : "ies"}; you can still message or book those tutors.` : "No tutor replied in time. You can browse tutors or post it again.",
+    ],
+    cta: { label: "Find help", url: opts.url },
+  });
+}
+
+export function staffReportAlertEmail(opts: { to: string; number: number; reason: string; against: string | null; url: string }): Email {
+  return build(opts.to, `New TierUp report #${opts.number}`, {
+    kicker: "New report",
+    title: `Report #${opts.number}${opts.against ? ` about ${opts.against}` : ""}`,
+    paragraphs: [opts.reason, "Review it in Moderation › Reports."],
+    cta: { label: "Review report", url: opts.url },
+    footer: "You're receiving this because you're TierUp staff at this school.",
+  });
+}
+
+export function hoursDigestEmail(opts: { to: string; count: number; hours: number; confirmed: number; url: string }): Email {
+  return build(opts.to, `${opts.count} service-hour entr${opts.count === 1 ? "y" : "ies"} waiting for sign-off`, {
+    kicker: "Daily digest",
+    title: `${opts.hours}h waiting for sign-off`,
+    paragraphs: [
+      `${opts.count} entr${opts.count === 1 ? "y is" : "ies are"} waiting; ${opts.confirmed} confirmed by the learner and ready for "Approve all confirmed".`,
+    ],
+    cta: { label: "Review hours", url: opts.url },
+    footer: "You're receiving this because you're TierUp staff at this school.",
+  });
+}
+
+export function unreadMessagesEmail(opts: { to: string; fromName: string; subject: string; count: number; url: string }): Email {
+  // Message text is left out on purpose: replies happen on TierUp, where staff can see the chat.
+  return build(opts.to, `${opts.fromName} sent you ${opts.count === 1 ? "a message" : `${opts.count} messages`}`, {
+    kicker: "New message",
+    title: `${opts.fromName} messaged you about ${opts.subject}`,
+    paragraphs: ["Read and reply on TierUp."],
+    cta: { label: "Open chat", url: opts.url },
+  });
+}
