@@ -1,103 +1,213 @@
-# Deploying TierUp
+# Deploying TierUp to Google Cloud
 
-Target setup: **Vercel** (app) + **Supabase** (Postgres) + **Resend** (email) + **GitHub Actions** (5-minute jobs).
-Work through the steps in order. Each one says what to copy where.
+**Setup:** Cloud Run (app, `us-east4`) + Neon (Postgres, free tier for now) + Resend (email) +
+Cloud Scheduler (background jobs) + Cloud Build (deploys on every push to `main`).
 
-The app refuses to start in production if a required setting is missing, and it prints the list of
-what to fix in the Vercel function logs.
+Work through the steps in order; each command is copy-paste. You need the
+[gcloud CLI](https://cloud.google.com/sdk/docs/install) (`gcloud init`, then `gcloud auth login`).
+You don't need Docker on your machine: Cloud Build builds the image.
+
+The app refuses to start in production if a required setting is missing, and lists what to fix in the
+Cloud Run logs.
+
+```bash
+# Used throughout. Pick a project ID (lowercase, globally unique).
+export PROJECT_ID=tierup-prod
+export REGION=us-east4
+```
 
 ---
 
-## 1. Supabase (database)
+## 1. Neon (database)
 
-1. Create a project: **Pro plan** (daily backups, no pausing), region **US East (N. Virginia)**.
-   Sign Supabase's DPA in the dashboard; schools will ask about it since we store minors' data.
-2. **Project Settings → Database → Connection string**, copy two URLs:
-   - **Transaction pooler** (port **6543**) → `DATABASE_URL`, and append `?pgbouncer=true&connection_limit=1`
-   - **Direct connection** (port **5432**) → `DIRECT_URL`
-3. TierUp doesn't use Supabase Auth, Storage or Realtime, so leave them off. Access rules are enforced in
-   the app's server code.
-
-## 2. Create the schema and load the catalog
-
-From your machine, with the two URLs from step 1:
+1. Create a project at neon.tech: Postgres **17**, region **AWS US East (N. Virginia)** (close to `us-east4`).
+2. **Connection details**, copy both strings:
+   - **Pooled** (host contains `-pooler`) → `DATABASE_URL`, ending in `?sslmode=require&pgbouncer=true`
+   - **Direct** (no `-pooler`) → `DIRECT_URL`, ending in `?sslmode=require`
+3. Create the schema and load the catalog from your machine:
 
 ```bash
-DATABASE_URL="<pooler url>" DIRECT_URL="<direct url>" npm run db:deploy        # apply migrations
-DATABASE_URL="<pooler url>" DIRECT_URL="<direct url>" npm run db:seed:catalog  # 64 schools, 80 courses, slots, staff domains
+DATABASE_URL="<pooled>" DIRECT_URL="<direct>" npm run db:deploy          # migrations
+DATABASE_URL="<pooled>" DIRECT_URL="<direct>" npm run db:seed:catalog    # 64 schools, 80 courses, slots, staff domains
 ```
 
-`db:seed:catalog` is safe to re-run; it only adds what's missing. **Never run `npm run db:seed` against
-production**; it wipes the database (it refuses to run against non-local hosts).
+`db:seed:catalog` is safe to re-run (it only adds what's missing). Never run `npm run db:seed` here: it
+wipes the database, and it refuses non-local hosts.
 
-Staff email domains: add confirmed ones to `prisma/seed/schools.ts` (like Flint Hill's `flinthill.org`),
-then re-run `db:seed:catalog`.
+> **Before real students:** the free tier has limited backups. Upgrade Neon, or move to Cloud SQL (§11).
 
-## 3. Resend (email)
+## 2. Google Cloud project
 
-1. Add and verify your sending domain (DNS records: SPF, DKIM).
-2. Create an API key → `RESEND_API_KEY`.
-3. `EMAIL_FROM`, e.g. `TierUp <noreply@yourdomain.org>` (must use the verified domain).
+```bash
+gcloud projects create $PROJECT_ID          # or use an existing project
+gcloud config set project $PROJECT_ID
+# Link a billing account in the console (Billing). New accounts get $300 credit.
 
-## 4. Google sign-in
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com \
+  secretmanager.googleapis.com cloudscheduler.googleapis.com iamcredentials.googleapis.com \
+  calendar-json.googleapis.com meet.googleapis.com
 
-In Google Cloud Console → your OAuth client → **Authorized redirect URIs**, add
-`https://<your domain>/api/auth/callback/google`. Keep the localhost one for development.
-Before launch, the OAuth consent screen must be **published** (not "Testing"), or only test users can sign in.
+gcloud artifacts repositories create tierup --repository-format=docker --location=$REGION
 
-## 5. Vercel
+export PROJECT_NUMBER=$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+export APP_URL="https://tierup-$PROJECT_NUMBER.$REGION.run.app"   # the Cloud Run URL (deterministic)
+echo $APP_URL
+```
 
-1. Import the GitHub repo. Framework: Next.js. The build uses the `vercel-build` script automatically:
-   it runs `prisma migrate deploy` **only for production deploys**, then builds.
-2. **Settings → Environment Variables** (Production):
+## 3. Secrets
 
-| Variable | Value |
-|---|---|
-| `DATABASE_URL` | Supabase pooler URL (+ `?pgbouncer=true&connection_limit=1`) |
-| `DIRECT_URL` | Supabase direct URL |
-| `AUTH_SECRET` | `npx auth secret` (or `openssl rand -base64 33`) |
-| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | from Google Cloud |
-| `APP_URL` | `https://<your domain>` |
-| `EMAIL_FROM`, `RESEND_API_KEY` | from step 3 |
-| `CRON_SECRET` | `openssl rand -hex 24` |
-| `MEET_PROVIDER` | `google` (see step 7); until then a preview needs `ALLOW_FAKE_MEET=true` |
+```bash
+secret() { printf '%s' "$2" | gcloud secrets create "$1" --data-file=- --replication-policy=automatic; }
 
-3. Add your domain under **Settings → Domains**.
+secret DATABASE_URL       "<Neon pooled URL>"
+secret DIRECT_URL         "<Neon direct URL>"
+secret AUTH_SECRET        "$(openssl rand -base64 33)"
+secret AUTH_GOOGLE_SECRET "<Google OAuth client secret>"
+secret RESEND_API_KEY     "<Resend API key>"          # §6
+secret CRON_SECRET        "$(openssl rand -hex 24)"
+```
 
-**Preview deployments**: point them at a *separate* Supabase project (or branch), never production.
-For a demo preview you can set `ALLOW_DEMO_SCHOOLS=true`, `ALLOW_FAKE_MEET=true`, and seed it with
-`ALLOW_DEMO_SEED=true npm run db:seed`.
+To change one later: `printf '%s' "new value" | gcloud secrets versions add NAME --data-file=-`, then redeploy.
 
-## 6. Background jobs
+## 4. Service accounts
 
-- `vercel.json` runs the **daily** jobs (hours digest on weekdays at 11:00 UTC, plus a daily catch-up run).
-  These work on any Vercel plan.
-- The **every-5-minutes** jobs (session reminders, request expiry, ending Meets, report alerts, unread-message
-  emails) run from GitHub Actions: `.github/workflows/cron.yml`. In GitHub → repo **Settings → Secrets and
-  variables → Actions**, add `APP_URL` and `CRON_SECRET` (same value as in Vercel).
-  GitHub may delay scheduled runs by a few minutes at busy times; on Vercel Pro you can move the
-  `*/5 * * * *` schedule into `vercel.json` instead.
+```bash
+# The app runs as tierup-run; Cloud Build deploys as tierup-build.
+gcloud iam service-accounts create tierup-run --display-name="TierUp app"
+gcloud iam service-accounts create tierup-build --display-name="TierUp deploys"
+RUN_SA=tierup-run@$PROJECT_ID.iam.gserviceaccount.com
+BUILD_SA=tierup-build@$PROJECT_ID.iam.gserviceaccount.com
 
-## 7. Google Meet (one-time links)
+for s in DATABASE_URL AUTH_SECRET AUTH_GOOGLE_SECRET RESEND_API_KEY CRON_SECRET; do
+  gcloud secrets add-iam-policy-binding $s --member=serviceAccount:$RUN_SA --role=roles/secretmanager.secretAccessor
+done
+for s in DATABASE_URL DIRECT_URL; do
+  gcloud secrets add-iam-policy-binding $s --member=serviceAccount:$BUILD_SA --role=roles/secretmanager.secretAccessor
+done
+for r in roles/run.admin roles/artifactregistry.writer roles/logging.logWriter; do
+  gcloud projects add-iam-policy-binding $PROJECT_ID --member=serviceAccount:$BUILD_SA --role=$r
+done
+gcloud iam service-accounts add-iam-policy-binding $RUN_SA --member=serviceAccount:$BUILD_SA --role=roles/iam.serviceAccountUser
+```
 
-Needs a **Google Workspace** account that owns the meeting events (open question #3: TierUp's own
-Workspace, or each school's).
+## 5. Google sign-in
 
-1. Google Cloud: enable the **Google Calendar API** and **Google Meet REST API**; create a **service account**
-   and a JSON key.
-2. Workspace Admin → Security → API controls → **Domain-wide delegation**: add the service account's client ID
-   with scopes `https://www.googleapis.com/auth/calendar.events` and
-   `https://www.googleapis.com/auth/meetings.space.created`.
-3. Set `MEET_PROVIDER=google`, `GOOGLE_SERVICE_ACCOUNT_KEY` (`base64 -i key.json`), and
-   `GOOGLE_MEET_ORGANIZER` (the Workspace user that owns the events, e.g. `sessions@yourdomain.org`).
-4. Book one online test session and confirm: both students get a calendar invite, the Meet link opens, and
-   a non-invited account has to knock.
+In the Google Cloud console project that holds your OAuth client → **APIs & Services → Credentials →
+your OAuth client → Authorized redirect URIs**, add `$APP_URL/api/auth/callback/google`.
+Before launch, **publish** the OAuth consent screen (in "Testing" only listed test users can sign in).
 
-## 8. Launch check
+## 6. Resend (email)
 
-- [ ] Sign in with Google and with an email link on the live domain
+Verify your sending domain (SPF/DKIM DNS records) and create an API key (the `RESEND_API_KEY` secret).
+`EMAIL_FROM` must use that domain, e.g. `TierUp <noreply@yourdomain.org>`.
+
+## 7. First deploy
+
+```bash
+# Build the image once by hand…
+gcloud builds submit --region=$REGION --tag $REGION-docker.pkg.dev/$PROJECT_ID/tierup/app:first .
+
+# …then create the service with its full configuration.
+gcloud run deploy tierup --region=$REGION \
+  --image=$REGION-docker.pkg.dev/$PROJECT_ID/tierup/app:first \
+  --service-account=tierup-run@$PROJECT_ID.iam.gserviceaccount.com \
+  --allow-unauthenticated --min-instances=0 --max-instances=3 --memory=512Mi \
+  --set-secrets=DATABASE_URL=DATABASE_URL:latest,AUTH_SECRET=AUTH_SECRET:latest,AUTH_GOOGLE_SECRET=AUTH_GOOGLE_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,CRON_SECRET=CRON_SECRET:latest \
+  --set-env-vars="APP_URL=$APP_URL,AUTH_GOOGLE_ID=<client id>,EMAIL_FROM=TierUp <noreply@yourdomain.org>,MEET_PROVIDER=fake,ALLOW_FAKE_MEET=true"
+```
+
+Until Google Meet is set up (§10), `ALLOW_FAKE_MEET=true` lets the app run with placeholder Meet links.
+**Treat it as a preview**: don't let real students book online sessions until §10 is done.
+
+If the service doesn't start, read why: `gcloud run services logs read tierup --region=$REGION --limit=50`.
+
+## 8. Deploy on every push to `main`
+
+1. Console → **Cloud Build → Repositories (2nd gen) → Create host connection** → GitHub, then **Link repository**
+   `mojdehgraznahan-sys/tierup`.
+2. Create the trigger:
+
+```bash
+gcloud builds triggers create github --name=tierup-main --region=$REGION \
+  --repository=projects/$PROJECT_ID/locations/$REGION/connections/<connection>/repositories/<repo> \
+  --branch-pattern='^main$' --build-config=cloudbuild.yaml \
+  --service-account=projects/$PROJECT_ID/serviceAccounts/tierup-build@$PROJECT_ID.iam.gserviceaccount.com
+```
+
+Each push to `main` then: applies migrations → builds the image → deploys it (`cloudbuild.yaml`).
+Settings and secrets stay on the service; change them with
+`gcloud run services update tierup --region=$REGION --update-env-vars=…` or `--update-secrets=…`.
+
+## 9. Background jobs (Cloud Scheduler)
+
+```bash
+CRON_SECRET=$(gcloud secrets versions access latest --secret=CRON_SECRET)
+
+gcloud scheduler jobs create http tierup-frequent --location=$REGION \
+  --schedule="*/5 * * * *" --uri="$APP_URL/api/cron/all" --http-method=GET \
+  --headers="Authorization=Bearer $CRON_SECRET" --attempt-deadline=120s
+
+gcloud scheduler jobs create http tierup-hours-digest --location=$REGION \
+  --schedule="0 7 * * 1-5" --time-zone="America/New_York" \
+  --uri="$APP_URL/api/cron/hours-digest" --http-method=GET \
+  --headers="Authorization=Bearer $CRON_SECRET"
+
+gcloud scheduler jobs run tierup-frequent --location=$REGION   # try it now
+```
+
+The frequent job covers session reminders, request expiry, ending Meets, report alerts and unread-message
+emails. Every job is idempotent. Note the secret is stored in the job's config, which project admins can see.
+
+## 10. Google Meet (one-time links, keyless)
+
+Needs a **Google Workspace** account that owns the meeting events (open question #3).
+
+```bash
+gcloud iam service-accounts create tierup-meet --display-name="TierUp Meet organizer"
+MEET_SA=tierup-meet@$PROJECT_ID.iam.gserviceaccount.com
+# Let the app sign as tierup-meet (no key file anywhere):
+gcloud iam service-accounts add-iam-policy-binding $MEET_SA \
+  --member=serviceAccount:tierup-run@$PROJECT_ID.iam.gserviceaccount.com --role=roles/iam.serviceAccountTokenCreator
+gcloud iam service-accounts describe $MEET_SA --format='value(oauth2ClientId)'   # numeric client ID
+```
+
+1. Workspace Admin console → **Security → API controls → Domain-wide delegation → Add new**: the numeric
+   client ID above, scopes
+   `https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/meetings.space.created`.
+2. Switch the app over:
+
+```bash
+gcloud run services update tierup --region=$REGION \
+  --update-env-vars="MEET_PROVIDER=google,GOOGLE_MEET_SERVICE_ACCOUNT=$MEET_SA,GOOGLE_MEET_ORGANIZER=sessions@yourdomain.org" \
+  --remove-env-vars=ALLOW_FAKE_MEET
+```
+
+3. Book a test online session and check: both students get a calendar invite, the link opens, and an
+   uninvited account has to knock. (This path is built but hasn't been run against live Google yet.)
+
+## 11. Later: move from Neon to Cloud SQL
+
+When real students arrive: create a Cloud SQL for PostgreSQL 17 instance in `us-east4` with automated
+backups; restore a `pg_dump` from Neon into it; point the `DATABASE_URL`/`DIRECT_URL` secrets at it
+(via the Cloud SQL connector, `--add-cloudsql-instances` on the service); redeploy. Migrations in Cloud
+Build then need the Cloud SQL Auth Proxy step. Ask before doing this; it's a short, planned cutover.
+
+## 12. Custom domain
+
+The `run.app` URL works for a pilot. For your own domain, use Cloud Run domain mappings if they're
+available in `us-east4`, otherwise Firebase Hosting (rewrite to the Cloud Run service) or a global
+external load balancer. Then update `APP_URL`, the OAuth redirect URI and the Scheduler job URLs.
+
+## Launch check
+
+- [ ] Sign in with Google and with an email link on the live URL
 - [ ] A test student completes onboarding; the parent consent email arrives and the link works
 - [ ] A teacher with the school's domain signs up as staff
-- [ ] Book an online and an in-person session; check the emails
-- [ ] `curl -H "Authorization: Bearer $CRON_SECRET" https://<domain>/api/cron/all` returns `{"ok":true,…}`
-- [ ] The GitHub Actions "Background jobs" workflow shows green runs
+- [ ] Book an in-person session (and an online one once §10 is done); check the emails
+- [ ] `gcloud scheduler jobs run tierup-frequent` → Cloud Run logs show `/api/cron/all` 200
+- [ ] A push to `main` triggers a green Cloud Build run
+
+## Cost at pilot scale (rough)
+
+Cloud Run, Cloud Build, Scheduler (3 jobs free), Artifact Registry and Secret Manager: about **$0–2/month**.
+Neon free tier: $0. Resend free tier: 3,000 emails/month. Cloud SQL later: about $10–15/month.

@@ -1,0 +1,14 @@
+# Never ship local secrets, data or build output into the image.
+.env
+.env.*
+!.env.example
+.data
+.next
+.next-e2e
+node_modules
+.git
+.github
+test-results
+playwright-report
+design_handoff_tierup
+*.log

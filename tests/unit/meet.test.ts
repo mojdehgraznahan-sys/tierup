@@ -41,3 +41,19 @@ describe("fake provider", () => {
     expect(fakeMeetCode("x")).toHaveLength(12);
   });
 });
+
+import { delegationClaims } from "@/server/integrations/meet/google-auth";
+
+describe("keyless delegation", () => {
+  it("builds a one-hour JWT-bearer assertion for the organizer", () => {
+    const claims = delegationClaims("meet@p.iam.gserviceaccount.com", "sessions@school.org", ["a", "b"], Date.UTC(2026, 9, 20, 12));
+    expect(claims).toEqual({
+      iss: "meet@p.iam.gserviceaccount.com",
+      sub: "sessions@school.org",
+      scope: "a b",
+      aud: "https://oauth2.googleapis.com/token",
+      iat: 1792497600,
+      exp: 1792501200,
+    });
+  });
+});

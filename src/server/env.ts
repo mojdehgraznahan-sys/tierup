@@ -28,8 +28,10 @@ export function productionEnvProblems(env: Env = process.env): string[] {
   if (!env.RESEND_API_KEY && env.ALLOW_CONSOLE_EMAIL !== "true") problems.push("RESEND_API_KEY is missing (email delivery)");
 
   if (env.MEET_PROVIDER === "google") {
-    need("GOOGLE_SERVICE_ACCOUNT_KEY", "MEET_PROVIDER=google");
     need("GOOGLE_MEET_ORGANIZER", "MEET_PROVIDER=google");
+    if (!env.GOOGLE_MEET_SERVICE_ACCOUNT && !env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+      problems.push("MEET_PROVIDER=google needs GOOGLE_MEET_SERVICE_ACCOUNT (keyless, Cloud Run) or GOOGLE_SERVICE_ACCOUNT_KEY");
+    }
   } else if (env.ALLOW_FAKE_MEET !== "true") {
     problems.push('MEET_PROVIDER must be "google" in production (or set ALLOW_FAKE_MEET=true for a preview without real Meet links)');
   }

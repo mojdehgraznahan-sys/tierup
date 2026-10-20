@@ -2,14 +2,16 @@
 // Business rules live in src/server/services, not here.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  /// native for local dev; debian-openssl-3.0.x for the Cloud Run container (node:20-bookworm-slim).
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
   provider  = "postgresql"
-  /// App connection. On Supabase: the pooled (port 6543) URL with ?pgbouncer=true&connection_limit=1.
+  /// App connection. On Neon: the pooled URL (host contains "-pooler") with ?sslmode=require&pgbouncer=true.
   url       = env("DATABASE_URL")
-  /// Migrations need a direct connection. On Supabase: the direct (port 5432) URL. Locally: same as DATABASE_URL.
+  /// Migrations need a direct connection. On Neon: the non-pooler URL. Locally: same as DATABASE_URL.
   directUrl = env("DIRECT_URL")
 }
 

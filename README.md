@@ -24,13 +24,13 @@ npm run dev                 # terminal 2: http://localhost:3000
 - `ALLOW_DEMO_SCHOOLS=true` shows the demo schools in a production build (previews, e2e).
 
 ## Deploying
-See [DEPLOY.md](DEPLOY.md) for Supabase, Vercel, Resend, Google sign-in, Google Meet and the background jobs.
+See [DEPLOY.md](DEPLOY.md): Google Cloud Run + Neon Postgres, Resend, Google sign-in, Google Meet and Cloud Scheduler.
 
 ## Background jobs
 Request expiry, 1-hour session reminders, ending Meet conferences after sessions, staff report alerts and
 unread-message emails run from `GET /api/cron/all`; the staff hours digest from `GET /api/cron/hours-digest`.
-Both need `Authorization: Bearer $CRON_SECRET`. In production, GitHub Actions runs them every 5 minutes and
-`vercel.json` runs the daily ones (see DEPLOY.md). Locally, run `npm run jobs` next to `npm run dev` (add `-- once` for a single run).
+Both need `Authorization: Bearer $CRON_SECRET`. In production, Cloud Scheduler calls them (every 5 minutes, plus the
+weekday digest; see DEPLOY.md). Locally, run `npm run jobs` next to `npm run dev` (add `-- once` for a single run).
 Every job is idempotent, so overlapping or repeated runs don't double-send.
 
 ## Scripts
