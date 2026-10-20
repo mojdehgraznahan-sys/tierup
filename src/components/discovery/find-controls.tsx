@@ -24,13 +24,14 @@ function useParamSetter() {
   };
 }
 
-export function SubjectSelect({ subjects, value, allLabel }: { subjects: Option[]; value?: string; allLabel?: string }) {
+export function SubjectSelect({ subjects, value, allLabel, label }: { subjects: Option[]; value?: string; allLabel?: string; label?: string }) {
   const set = useParamSetter();
   // Local state so the control updates instantly; the URL (and results) follow.
   const [current, setCurrent] = useState(value ?? "");
   return (
     <select
       id="subject"
+      aria-label={label}
       className="input"
       value={current}
       onChange={(e) => {

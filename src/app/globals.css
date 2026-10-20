@@ -94,6 +94,11 @@
   a:hover {
     color: var(--color-accent-800);
   }
+  /* Links inside running text need more than color to stand out (WCAG 1.4.1). */
+  p a,
+  .muted a {
+    text-decoration: underline;
+  }
   :focus {
     outline: none;
   }
@@ -112,7 +117,8 @@
     font-size: 11px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--color-accent-2);
+    /* accent-2-600, not the base pink: 4.7:1 on the page ground for 11px text (WCAG AA). */
+    color: var(--color-accent-2-600);
   }
   .muted {
     color: var(--color-neutral-700);
@@ -146,17 +152,17 @@
     opacity: 0.45;
     cursor: not-allowed;
   }
+  /* Ink on gold (6.5:1). The prototype's cream-on-gold is 2.2:1 and fails WCAG AA. */
   .btn-primary {
     background: var(--color-accent);
     border-color: var(--color-accent);
-    color: var(--color-bg);
+    color: var(--color-ink);
   }
-  .btn-primary:hover:not(:disabled) {
-    background: var(--color-accent-600);
-    color: var(--color-bg);
-  }
+  .btn-primary:hover:not(:disabled),
   .btn-primary:active:not(:disabled) {
-    background: var(--color-accent-700);
+    background: var(--color-accent-400);
+    border-color: var(--color-accent-600);
+    color: var(--color-ink);
   }
   .btn-secondary:hover:not(:disabled) {
     background: color-mix(in srgb, var(--color-ink) 7%, transparent);
@@ -196,7 +202,7 @@
   }
   .card-meta {
     font-size: 12px;
-    color: color-mix(in srgb, var(--color-ink) 50%, transparent);
+    color: var(--color-neutral-600);
   }
 
   /* Blueprint frame: "+" registration marks at the 4 corners. */
@@ -352,7 +358,7 @@
   .seg-opt:has(input:checked),
   .seg-opt[aria-current="page"] {
     background: var(--color-accent);
-    color: var(--color-bg);
+    color: var(--color-ink);
   }
   /* Segmented control built from links (e.g. Find help modes). */
   a.seg-opt {
@@ -361,7 +367,7 @@
   }
   a.seg-opt[aria-current="page"],
   a.seg-opt[aria-current="page"]:hover {
-    color: var(--color-bg);
+    color: var(--color-ink);
   }
   a.seg-opt:not([aria-current="page"]):hover {
     background: color-mix(in srgb, var(--color-ink) 7%, transparent);
@@ -426,7 +432,7 @@
     font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: color-mix(in srgb, var(--color-ink) 60%, transparent);
+    color: var(--color-neutral-700);
     padding: 8px;
     border-bottom: 1px solid var(--color-divider);
   }

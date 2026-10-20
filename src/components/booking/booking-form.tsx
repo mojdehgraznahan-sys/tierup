@@ -41,7 +41,7 @@ export function BookingForm(props: Props) {
   const day = (weekday: number) => props.days.find((d) => d.weekday === weekday)!;
   const summary = selected
     ? `${day(selected.weekday).label} ${day(selected.weekday).date} · ${rowLabel(selected.startMinute)} · ${format === "online" ? "Google Meet" : location}`
-    : "Pick an open time on the grid";
+    : "Pick an open time";
 
   const confirm = () =>
     startTransition(async () => {
@@ -64,8 +64,42 @@ export function BookingForm(props: Props) {
 
   return (
     <div className="grid items-start gap-8 pt-6 lg:grid-cols-[minmax(0,1fr)_300px]">
-      <div className="flex flex-col gap-2.5 overflow-x-auto">
-        <div role="grid" aria-label="Times you're both free" className="flex min-w-[460px] flex-col gap-1.5 text-[13px]">
+      {/* Phones: a list of open times by day (wireframe 1o). */}
+      <div className="flex flex-col gap-3 md:hidden">
+        {props.days.map((d) => {
+          const open = props.cells.filter((c) => c.weekday === d.weekday && c.state === "open");
+          if (open.length === 0) return null;
+          return (
+            <fieldset key={d.weekday} className="m-0 flex flex-col gap-1.5 border-0 p-0">
+              <legend className="kicker mb-1.5">
+                {d.label} {d.date}
+              </legend>
+              {open.map((cell) => {
+                const isSelected = selected?.startsAt === cell.startsAt;
+                return (
+                  <button
+                    key={cell.startsAt}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => setSelected(cell)}
+                    className={clsx(
+                      "flex min-h-11 items-center justify-between border px-3 text-left text-sm",
+                      isSelected ? "border-accent bg-accent font-semibold text-ink" : "border-divider bg-accent-100 text-ink",
+                    )}
+                  >
+                    <span>{rowLabel(cell.startMinute)}</span>
+                    <span className="text-xs">{isSelected ? "Selected" : "Open"}</span>
+                  </button>
+                );
+              })}
+            </fieldset>
+          );
+        })}
+        {!props.cells.some((c) => c.state === "open") && <p className="muted m-0 text-sm">No open times this week.</p>}
+      </div>
+
+      <div className="hidden flex-col gap-2.5 md:flex">
+        <div role="grid" aria-label="Times you're both free" className="flex flex-col gap-1.5 text-[13px]">
           <div role="row" className="grid grid-cols-[70px_repeat(5,minmax(0,1fr))] gap-1.5">
             <span />
             {props.days.map((d) => (
@@ -96,10 +130,10 @@ export function BookingForm(props: Props) {
                     className={clsx(
                       "grid h-10 place-items-center border text-xs",
                       isSelected
-                        ? "cursor-pointer border-accent bg-accent text-bg"
+                        ? "cursor-pointer border-accent bg-accent font-semibold text-ink"
                         : open
                           ? "cursor-pointer border-divider bg-accent-200 text-accent-800 hover:bg-accent-300"
-                          : "cursor-default border-divider bg-transparent text-neutral-500",
+                          : "cursor-default border-divider bg-transparent text-neutral-600",
                     )}
                   >
                     {isSelected ? "Selected" : CELL_TEXT[cell.state]}

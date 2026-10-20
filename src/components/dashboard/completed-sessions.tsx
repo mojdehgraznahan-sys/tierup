@@ -55,7 +55,7 @@ export function CompletedSessions({ rows }: { rows: CompletedRow[] }) {
             <span
               aria-hidden
               className={clsx(
-                "grid size-4 place-items-center border text-xs leading-none text-bg peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent",
+                "grid size-4 place-items-center border text-xs leading-none text-ink peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent",
                 checked ? "border-accent bg-accent" : "border-neutral-600 bg-transparent",
                 locked && "opacity-60",
               )}

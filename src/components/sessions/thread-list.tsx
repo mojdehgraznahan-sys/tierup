@@ -33,7 +33,7 @@ export function ThreadList({ threads, selectedId }: { threads: ThreadItem[]; sel
             <span className={clsx("text-[13px]", t.unread ? "font-semibold" : "muted")}>
               {t.otherName} · {t.when ?? "Not booked yet"}
             </span>
-            <span className="text-xs text-accent-2-600">{t.status}</span>
+            <span className="text-xs text-accent-2-700">{t.status}</span>
           </Link>
         );
       })}

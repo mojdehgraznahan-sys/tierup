@@ -47,6 +47,14 @@ export default async function TutorProfilePage({ params, searchParams }: Props) 
             </div>
           </div>
 
+          {/* Phones: book/message right under the name, not after the reviews (wireframe 1k). */}
+          <div className="flex gap-2 md:hidden">
+            <ButtonLink href={bookHref} variant="primary" className="flex-1 py-[9px]">
+              See times
+            </ButtonLink>
+            <MessageButton tutorId={tutor.id} subjectId={subjectId} className="btn btn-secondary flex-1" />
+          </div>
+
           {tutor.bio && (
             <section>
               <span className="kicker">About</span>

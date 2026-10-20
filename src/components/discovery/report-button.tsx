@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { reportAction } from "@/app/(app)/discovery-actions";
 import { Button } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
@@ -22,6 +22,21 @@ export function ReportButton({ label = "⚑ Report", className = "text-xs text-n
   const [reason, setReason] = useState<(typeof REASONS)[number]>(REASONS[0]);
   const [details, setDetails] = useState("");
   const [pending, startTransition] = useTransition();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+
+  // Keyboard: focus moves into the dialog, Escape closes it, focus returns to the trigger.
+  useEffect(() => {
+    if (!open) return;
+    const opener = trigger.current;
+    dialog.current?.querySelector<HTMLElement>("input, textarea, button")?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      opener?.focus();
+    };
+  }, [open]);
 
   const submit = () =>
     startTransition(async () => {
@@ -35,12 +50,12 @@ export function ReportButton({ label = "⚑ Report", className = "text-xs text-n
 
   return (
     <>
-      <button type="button" className={`cursor-pointer self-start bg-transparent p-0 underline-offset-2 hover:underline ${className}`} onClick={() => setOpen(true)}>
+      <button ref={trigger} type="button" aria-haspopup="dialog" className={`cursor-pointer self-start bg-transparent p-0 underline-offset-2 hover:underline ${className}`} onClick={() => setOpen(true)}>
         {label}
       </button>
       {open && (
         <div className="dialog-backdrop" onClick={() => setOpen(false)}>
-          <div role="dialog" aria-modal="true" aria-labelledby="report-title" className="dialog" onClick={(e) => e.stopPropagation()}>
+          <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby="report-title" className="dialog" onClick={(e) => e.stopPropagation()}>
             <h3 id="report-title" className="text-xl">
               Report a problem
             </h3>

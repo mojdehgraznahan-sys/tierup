@@ -157,7 +157,7 @@ async function MatchMe({ viewer, subjectId }: { viewer: { id: string; schoolId: 
           Best matches for <b className="text-ink">{chosen.name}</b> based on your classes and free time.
         </p>
         <div className="w-56">
-          <SubjectSelect subjects={subjects} value={chosen.id} />
+          <SubjectSelect subjects={subjects} value={chosen.id} label="Subject to match" />
         </div>
       </div>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-5">

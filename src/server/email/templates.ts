@@ -5,7 +5,7 @@ import type { Email } from "./send";
 
 const INK = "#3B2314";
 const GOLD = "#DDA15E";
-const PINK = "#D954AA";
+const PINK = "#C13D93"; // accent-2-600: AA contrast for small text
 const BG = "#FDFBF7";
 
 const esc = (s: string) =>
@@ -14,7 +14,7 @@ const esc = (s: string) =>
 function layout(opts: { kicker: string; title: string; paragraphs: string[]; cta?: { label: string; url: string }; footer?: string }) {
   const body = opts.paragraphs.map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.55">${esc(p)}</p>`).join("");
   const cta = opts.cta
-    ? `<p style="margin:22px 0"><a href="${esc(opts.cta.url)}" style="display:inline-block;background:${GOLD};color:${BG};text-decoration:none;font-weight:700;padding:11px 18px;border:1px solid ${GOLD}">${esc(opts.cta.label)}</a></p>
+    ? `<p style="margin:22px 0"><a href="${esc(opts.cta.url)}" style="display:inline-block;background:${GOLD};color:${INK};text-decoration:none;font-weight:700;padding:11px 18px;border:1px solid ${GOLD}">${esc(opts.cta.label)}</a></p>
        <p style="margin:0 0 14px;font-size:12px;color:#827064">Or paste this link into your browser:<br>${esc(opts.cta.url)}</p>`
     : "";
   return `<!doctype html><html><body style="margin:0;background:${BG};color:${INK};font-family:Helvetica,Arial,sans-serif">

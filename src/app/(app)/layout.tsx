@@ -14,6 +14,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen flex-col">
+      <a href="#main" className="sr-only z-50 bg-ink px-3 py-2 text-bg focus:not-sr-only focus:fixed focus:top-2 focus:left-2">
+        Skip to content
+      </a>
       <AppHeader
         mode={mode}
         canSwitch={user.roles.includes("learner") && user.roles.includes("tutor")}
@@ -23,7 +26,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         image={user.image}
         unread={unread}
       />
-      <main className="mx-auto w-full max-w-[1120px] flex-1 px-4 pb-16 sm:px-6">{children}</main>
+      <main id="main" tabIndex={-1} className={`mx-auto w-full max-w-[1120px] flex-1 px-4 outline-none sm:px-6 sm:pb-16 ${isStaff ? "pb-16" : "pb-24"}`}>
+        {children}
+      </main>
     </div>
   );
 }

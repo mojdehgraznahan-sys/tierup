@@ -114,7 +114,7 @@ export function Wordmark({ slogan, href = "/" }: { slogan?: boolean; href?: stri
   return (
     <Link href={href} className="flex items-baseline gap-2.5 text-ink no-underline hover:text-ink">
       <span className="h text-[22px]">TierUp</span>
-      {slogan && <span className="hidden text-xs font-medium tracking-[.04em] text-accent-2 sm:inline">Team Up, TierUp</span>}
+      {slogan && <span className="hidden text-xs font-medium tracking-[.04em] text-accent-2-600 sm:inline">Team Up, TierUp</span>}
     </Link>
   );
 }

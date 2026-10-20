@@ -3,6 +3,7 @@
 import clsx from "clsx";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { ShieldCheck } from "lucide-react";
 import { sendMessageAction } from "@/app/(app)/sessions/actions";
 import { Button } from "@/components/ui/primitives";
 import type { MessageDTO } from "@/server/services/messaging";
@@ -84,9 +85,12 @@ export function Chat({ threadId, title, initialMessages, readOnly, showSenders }
 
   return (
     <section className="flex min-h-0 flex-col" aria-label={`Chat with ${title}`}>
-      <header className="flex items-center justify-between gap-3 border-b border-divider px-4 py-3">
+      <header className="flex flex-col gap-1.5 border-b border-divider px-4 py-3">
         <h2 className="truncate text-xl">{title}</h2>
-        <span className="shrink-0 text-xs">School staff can view this chat</span>
+        <p className="m-0 flex items-start gap-1.5 text-xs text-neutral-700">
+          <ShieldCheck size={14} strokeWidth={1.5} aria-hidden className="mt-px shrink-0" />
+          <span>School staff can view this chat. No sharing phone numbers or socials.</span>
+        </p>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-4" role="log" aria-live="polite">
