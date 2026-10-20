@@ -2,23 +2,28 @@
 // Alex P. (learner), tutors Maya/Dev/Lena/Priya at "Lincoln High School (Demo)", Sam at
 // "Grant High School (Demo)", and their teachers. Dates are relative to when the seed runs,
 // so upcoming sessions always land next week.
-// Run: npm run db:seed   (wipes and recreates all data)
-import { PrismaClient, type Format, type Role, type TimeBlock } from "@prisma/client";
+// Run: npm run db:seed   (WIPES and recreates all data; local databases only)
+// For production use `npm run db:seed:catalog` instead.
+import { PrismaClient, type Format, type Role } from "@prisma/client";
 import { randomBytes } from "node:crypto";
-import { DMV_SCHOOLS } from "./schools";
-import { SUBJECT_GROUPS } from "./subjects";
+import { DEFAULT_SLOTS as SLOTS, DEFAULT_SPACES as SPACES, seedCatalog } from "./catalog";
 import { slotInstant, weekStart } from "../../src/lib/time";
 
-const db = new PrismaClient();
+// Refuse to wipe anything but a local database.
+const host = (() => {
+  try {
+    return new URL(process.env.DATABASE_URL ?? "").hostname;
+  } catch {
+    return "";
+  }
+})();
+if (!["localhost", "127.0.0.1", "::1"].includes(host) && process.env.ALLOW_DEMO_SEED !== "true") {
+  console.error(`Refusing to wipe and demo-seed a non-local database (${host || "unknown host"}).`);
+  console.error("Use `npm run db:seed:catalog` for production, or set ALLOW_DEMO_SEED=true for a throwaway preview database.");
+  process.exit(1);
+}
 
-const SLOTS: { label: string; startMinute: number; block: TimeBlock }[] = [
-  { label: "7:30 am", startMinute: 7 * 60 + 30, block: "before_school" },
-  { label: "Lunch", startMinute: 12 * 60 + 10, block: "lunch" },
-  { label: "3:30 pm", startMinute: 15 * 60 + 30, block: "after_school" },
-  { label: "4:30 pm", startMinute: 16 * 60 + 30, block: "after_school" },
-  { label: "7:00 pm", startMinute: 19 * 60, block: "evening" },
-];
-const SPACES = ["Library", "Room 204 (Math)", "Learning commons"];
+const db = new PrismaClient();
 const DAY = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5 } as const;
 const TIME = { "7:30": 450, "12:10": 730, "3:30": 930, "4:30": 990, "7:00": 1140 } as const;
 type SlotKey = `${keyof typeof DAY}-${keyof typeof TIME}`;
@@ -43,24 +48,14 @@ async function wipe() {
 async function main() {
   await wipe();
 
-  // ── Catalog ──
-  await db.school.createMany({ data: DMV_SCHOOLS.map((s) => ({ ...s, approvedSpaces: SPACES })) });
-  const allSubjects = SUBJECT_GROUPS.flatMap(([group, courses]) =>
-    courses.map((name, i) => ({ name, group, sortOrder: i })),
-  );
-  await db.subject.createMany({ data: allSubjects });
+  // ── Catalog (same code path production uses) ──
+  await seedCatalog(db);
   const subjects = new Map((await db.subject.findMany()).map((s) => [s.name, s.id]));
   const subj = (name: string) => {
     const id = subjects.get(name);
     if (!id) throw new Error(`Unknown subject ${name}`);
     return id;
   };
-
-  // Every real school gets the default bell-time slots; staff can edit them later.
-  const realSchools = await db.school.findMany();
-  await db.schoolSlot.createMany({
-    data: realSchools.flatMap((s) => SLOTS.map((slot, i) => ({ ...slot, schoolId: s.id, sortOrder: i }))),
-  });
 
   // ── Demo schools ──
   const mkDemoSchool = (name: string, domain: string) =>

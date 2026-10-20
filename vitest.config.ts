@@ -13,7 +13,7 @@ export default defineConfig({
   },
   test: {
     include: ["src/**/*.test.ts", "tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
-    env: { DATABASE_URL: TEST_DB, APP_URL: "http://localhost:3000" },
+    env: { DATABASE_URL: TEST_DB, DIRECT_URL: TEST_DB, APP_URL: "http://localhost:3000" },
     // Integration tests share one database, so run files one at a time.
     fileParallelism: false,
     globalSetup: ["tests/global-setup.ts"],

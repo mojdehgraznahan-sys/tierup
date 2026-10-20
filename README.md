@@ -23,11 +23,14 @@ npm run dev                 # terminal 2: http://localhost:3000
 - **Staff:** teachers become staff by signing in with an email on their school's `staffEmailDomains`. The demo schools use `lincoln-hs.test` and `grant-hs.test`; real schools have no domains yet, so their teachers go on a waitlist.
 - `ALLOW_DEMO_SCHOOLS=true` shows the demo schools in a production build (previews, e2e).
 
+## Deploying
+See [DEPLOY.md](DEPLOY.md) for Supabase, Vercel, Resend, Google sign-in, Google Meet and the background jobs.
+
 ## Background jobs
 Request expiry, 1-hour session reminders, ending Meet conferences after sessions, staff report alerts and
 unread-message emails run from `GET /api/cron/all`; the staff hours digest from `GET /api/cron/hours-digest`.
-Both need `Authorization: Bearer $CRON_SECRET`. On Vercel, `vercel.json` schedules them (every 5 minutes,
-and weekdays at 11:00 UTC). Locally, run `npm run jobs` next to `npm run dev` (add `-- once` for a single run).
+Both need `Authorization: Bearer $CRON_SECRET`. In production, GitHub Actions runs them every 5 minutes and
+`vercel.json` runs the daily ones (see DEPLOY.md). Locally, run `npm run jobs` next to `npm run dev` (add `-- once` for a single run).
 Every job is idempotent, so overlapping or repeated runs don't double-send.
 
 ## Scripts
@@ -35,7 +38,9 @@ Every job is idempotent, so overlapping or repeated runs don't double-send.
 |---|---|
 | `db:start` | Runs an embedded Postgres 17 (the `embedded-postgres` package) |
 | `db:migrate` / `db:reset` | Prisma migrate dev / reset (reset re-runs the seed) |
-| `db:seed` | Wipes and reseeds the catalog plus the demo world |
+| `db:seed` | Wipes and reseeds the catalog plus the demo world (local databases only) |
+| `db:seed:catalog` | Production-safe: adds missing schools, courses, slots and staff domains |
+| `db:deploy` | Applies migrations (production) |
 | `jobs` | Runs the background jobs against the local app every minute |
 | `test` | Vitest unit + integration tests (needs `db:start`; uses a separate `tierup_test` database) |
 | `typecheck`, `lint`, `build` | The usual |

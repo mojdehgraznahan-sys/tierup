@@ -16,5 +16,5 @@ export default async function setup() {
   const { rowCount } = await client.query("SELECT 1 FROM pg_database WHERE datname = 'tierup_test'");
   if (!rowCount) await client.query("CREATE DATABASE tierup_test");
   await client.end();
-  execSync("npx prisma migrate deploy", { env: { ...process.env, DATABASE_URL: TEST_URL }, stdio: "pipe" });
+  execSync("npx prisma migrate deploy", { env: { ...process.env, DATABASE_URL: TEST_URL, DIRECT_URL: TEST_URL }, stdio: "pipe" });
 }

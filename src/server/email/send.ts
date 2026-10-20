@@ -12,6 +12,10 @@ const from = process.env.EMAIL_FROM ?? "TierUp <noreply@tierup.app>";
  * (including any links) to the server console so local flows still work.
  */
 export async function sendEmail(email: Email): Promise<void> {
+  if (!resend && process.env.NODE_ENV === "production" && process.env.ALLOW_CONSOLE_EMAIL !== "true") {
+    // Never print emails (sign-in links, consent tokens) to production logs.
+    throw new Error("RESEND_API_KEY is not set; email not sent");
+  }
   if (!resend) {
     console.log(
       [
