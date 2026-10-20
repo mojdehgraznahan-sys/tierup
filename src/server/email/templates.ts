@@ -170,3 +170,62 @@ export function sessionCancelledEmail(opts: { to: string; byName: string; subjec
     cta: { label: "Open TierUp", url: opts.url },
   });
 }
+
+export function subjectDecisionEmail(opts: { to: string; subject: string; approved: boolean; staffName: string; url: string }): Email {
+  return build(opts.to, opts.approved ? `You're approved to tutor ${opts.subject}` : `Your ${opts.subject} tutoring approval was revoked`, {
+    kicker: "Tutor approval",
+    title: opts.approved ? `You can tutor ${opts.subject}` : `${opts.subject} approval revoked`,
+    paragraphs: opts.approved
+      ? [`${opts.staffName} approved you for ${opts.subject}. Learners can now find you, and you'll see ${opts.subject} requests on your dashboard.`]
+      : [`${opts.staffName} revoked your approval for ${opts.subject}. Learners won't see you for it anymore. Ask them if you have questions.`],
+    cta: { label: "Open dashboard", url: opts.url },
+    footer: "You're receiving this because you tutor on TierUp.",
+  });
+}
+
+export function hoursDecisionEmail(opts: { to: string; hours: number; subject: string; when: string; approved: boolean; url: string }): Email {
+  return build(opts.to, opts.approved ? `${opts.hours}h approved` : `Hours not approved: ${opts.subject}, ${opts.when}`, {
+    kicker: "Service hours",
+    title: opts.approved ? `${opts.hours}h added to your total` : "Your teacher didn't approve these hours",
+    paragraphs: [
+      `${opts.subject} · ${opts.when}`,
+      opts.approved ? "They now count toward your service-hour goal." : "Ask your teacher about it if you think this is a mistake.",
+    ],
+    cta: { label: "See my hours", url: opts.url },
+    footer: "You're receiving this because you tutor on TierUp.",
+  });
+}
+
+export function warningEmail(opts: { to: string; name: string; reason: string; schoolName: string }): Email {
+  return build(opts.to, "A warning from your school about TierUp", {
+    kicker: "Warning",
+    title: `${opts.name}, please review TierUp's rules`,
+    paragraphs: [
+      `Staff at ${opts.schoolName} reviewed a report about your activity on TierUp: ${opts.reason}.`,
+      "Keep all contact on TierUp, meet only in approved spaces or on the one-time Meet, and be respectful. Further reports can pause your account.",
+    ],
+  });
+}
+
+export function pausedEmail(opts: { to: string; name: string; schoolName: string; cancelled: number }): Email {
+  return build(opts.to, "Your TierUp tutoring is paused", {
+    kicker: "Paused",
+    title: `${opts.name}, your tutoring is paused`,
+    paragraphs: [
+      `Staff at ${opts.schoolName} paused your tutoring after a report. Learners can't find or book you while it's paused.`,
+      opts.cancelled ? `${opts.cancelled} upcoming session${opts.cancelled === 1 ? " was" : "s were"} cancelled and the learners were told.` : "",
+      "Talk to your school's staff about next steps.",
+    ].filter(Boolean),
+  });
+}
+
+export function reportParentEmail(opts: { to: string; studentName: string; schoolName: string; summary: string }): Email {
+  return build(opts.to, `${opts.schoolName} would like you to know about a TierUp report`, {
+    kicker: "Safety notice",
+    title: `About ${opts.studentName}'s use of TierUp`,
+    paragraphs: [
+      `School staff at ${opts.schoolName} are reviewing a report involving ${opts.studentName}: ${opts.summary}.`,
+      "No action is needed from you right now. Staff may follow up; you can also contact the school directly.",
+    ],
+  });
+}

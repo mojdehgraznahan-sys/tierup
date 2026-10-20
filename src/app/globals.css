@@ -367,7 +367,7 @@
     background: color-mix(in srgb, var(--color-ink) 7%, transparent);
     color: var(--color-ink);
   }
-  .seg-opt:not(:has(input:checked)):hover {
+  .seg-opt:not(:has(input:checked)):not([aria-current="page"]):hover {
     background: color-mix(in srgb, var(--color-ink) 7%, transparent);
   }
   .seg-opt:has(input:focus-visible) {

@@ -34,8 +34,10 @@ async function wipe() {
   const tables = await db.$queryRaw<{ tablename: string }[]>`
     SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'`;
   if (tables.length) {
-    await db.$executeRawUnsafe(`TRUNCATE ${tables.map((t) => `"${t.tablename}"`).join(", ")} CASCADE`);
+    await db.$executeRawUnsafe(`TRUNCATE ${tables.map((t) => `"${t.tablename}"`).join(", ")} RESTART IDENTITY CASCADE`);
   }
+  // Demo report numbers start where the prototype's do ("Report #31").
+  await db.$executeRawUnsafe(`ALTER SEQUENCE "Report_number_seq" RESTART WITH 31`);
 }
 
 async function main() {

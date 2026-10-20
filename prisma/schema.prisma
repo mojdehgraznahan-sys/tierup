@@ -504,6 +504,8 @@ model HourLog {
 
 model Report {
   id            String       @id @default(cuid())
+  /// Human-friendly number shown to staff ("Report #31").
+  number        Int          @unique @default(autoincrement())
   reporterId    String?
   againstUserId String?
   sessionId     String?
