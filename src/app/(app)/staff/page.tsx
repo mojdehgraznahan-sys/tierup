@@ -31,11 +31,11 @@ const TABS: [Tab, string][] = [
   ["school", "School"],
 ];
 
-type Props = { searchParams: Promise<{ tab?: string }> };
+type Props = { searchParams: Promise<{ tab?: string; scope?: string; tutor?: string }> };
 
 export default async function StaffPage({ searchParams }: Props) {
   const staff = await requireOnboarded(["staff"]);
-  const { tab: raw } = await searchParams;
+  const { tab: raw, scope, tutor } = await searchParams;
   const tab: Tab = TABS.some(([t]) => t === raw) ? (raw as Tab) : "approvals";
 
   return (
@@ -53,7 +53,7 @@ export default async function StaffPage({ searchParams }: Props) {
           ))}
         </nav>
       </div>
-      {tab === "approvals" && <Approvals staff={staff} />}
+      {tab === "approvals" && <Approvals staff={staff} scope={scope} tutorId={tutor} />}
       {tab === "hours" && <Hours staff={staff} />}
       {tab === "reports" && <Reports staff={staff} />}
       {tab === "log" && <SessionLog staff={staff} />}
@@ -68,12 +68,33 @@ function TableWrap({ children }: { children: React.ReactNode }) {
   return <div className="overflow-x-auto">{children}</div>;
 }
 
-async function Approvals({ staff }: { staff: StaffUser }) {
-  const rows = await approvalsQueue(staff);
+async function Approvals({ staff, scope, tutorId }: { staff: StaffUser; scope?: string; tutorId?: string }) {
+  const all = await approvalsQueue(staff);
+  const mine = all.filter((a) => a.forMe);
+  // Default to "For me" when this teacher has been named on any request.
+  const showMine = scope === "mine" || (scope !== "all" && mine.length > 0);
+  const rows = showMine ? mine : all;
+  const href = (s: "mine" | "all") => `/staff?tab=approvals&scope=${s}${tutorId ? `&tutor=${tutorId}` : ""}`;
+  const pendingMine = mine.filter((a) => a.status === "pending").length;
+
   return (
     <>
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
+        <nav className="seg" aria-label="Which requests">
+          <Link href={href("mine")} className="seg-opt" aria-current={showMine ? "page" : undefined}>
+            For me{pendingMine ? ` (${pendingMine})` : ""}
+          </Link>
+          <Link href={href("all")} className="seg-opt" aria-current={!showMine ? "page" : undefined}>
+            All at school
+          </Link>
+        </nav>
+        {tutorId && rows.some((r) => r.tutorId === tutorId) && <span className="muted text-[13px]">Highlighted: the student from your email</span>}
+      </div>
       {rows.length === 0 ? (
-        <p className="muted">No tutor requests yet. When students name you as their teacher, they show up here.</p>
+        <p className="muted">
+          {showMine ? "No students have named you as their teacher yet." : "No tutor requests yet."}{" "}
+          {showMine && <Link href={href("all")}>See all requests at your school</Link>}
+        </p>
       ) : (
         <TableWrap>
           <table className="table min-w-[640px]">
@@ -89,7 +110,7 @@ async function Approvals({ staff }: { staff: StaffUser }) {
             </thead>
             <tbody>
               {rows.map((a) => (
-                <tr key={a.id}>
+                <tr key={a.id} id={`approval-${a.id}`} className={a.tutorId === tutorId ? "bg-accent-100" : undefined}>
                   <td>{a.student}</td>
                   <td>{a.subject}</td>
                   <td>{a.courseGrade}</td>
@@ -102,15 +123,12 @@ async function Approvals({ staff }: { staff: StaffUser }) {
                       <ActionButton action={revokeSubjectAction.bind(null, a.id)} confirm={`Revoke ${a.student.split(" ·")[0]}'s approval for ${a.subject}?`}>
                         Revoke
                       </ActionButton>
-                    ) : (
-                      <ActionButton
-                        action={approveSubjectAction.bind(null, a.id)}
-                        variant="primary"
-                        disabled={!a.consentGiven}
-                        title={a.consentGiven ? undefined : "Waiting for a parent to consent"}
-                      >
+                    ) : a.consentGiven ? (
+                      <ActionButton action={approveSubjectAction.bind(null, a.id)} variant="primary">
                         {a.status === "revoked" ? "Re-approve" : "Approve"}
                       </ActionButton>
+                    ) : (
+                      <span className="muted text-xs">Waiting for parent</span>
                     )}
                   </td>
                 </tr>
@@ -120,7 +138,8 @@ async function Approvals({ staff }: { staff: StaffUser }) {
         </TableWrap>
       )}
       <p className="muted text-xs">
-        You approve each subject separately and can revoke approval at any time. You can&apos;t approve until a parent has consented.
+        You approve each subject separately and can revoke approval at any time. You can approve once a parent has consented; we email
+        the named teacher when that happens.
       </p>
     </>
   );

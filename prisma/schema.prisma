@@ -317,18 +317,22 @@ model LearnerSubject {
 
 /// A tutor's per-subject approval, endorsed by a teacher at their school.
 model TutorSubject {
-  id            String             @id @default(cuid())
-  tutorId       String
-  subjectId     String
+  id              String             @id @default(cuid())
+  tutorId         String
+  subjectId       String
   /// Letter grade the tutor earned in the course, shown to staff.
-  courseGrade   String?
+  courseGrade     String?
   /// Email the tutor typed for their endorsing teacher; linked to endorserId once that teacher signs up.
-  endorserEmail String?
-  endorserId    String?
-  status        TutorSubjectStatus @default(pending)
-  createdAt     DateTime           @default(now())
-  decidedAt     DateTime?
-  decidedById   String?
+  endorserEmail   String?
+  endorserId      String?
+  status          TutorSubjectStatus @default(pending)
+  createdAt       DateTime           @default(now())
+  decidedAt       DateTime?
+  decidedById     String?
+  /// When the endorsing teacher was told the request is ready to approve (parent consent given).
+  readyNotifiedAt DateTime?
+  /// When the one follow-up reminder went out (TUTOR_APPROVAL_REMINDER_DAYS after it was ready).
+  reminderSentAt  DateTime?
 
   tutor     User    @relation("TutorSubjects", fields: [tutorId], references: [id], onDelete: Cascade)
   subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)

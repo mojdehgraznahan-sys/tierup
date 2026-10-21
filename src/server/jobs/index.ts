@@ -9,6 +9,7 @@ import {
   unreadMessagesEmail,
 } from "@/server/email/templates";
 import { getMeetProvider } from "@/server/integrations/meet";
+import { sendApprovalReminders } from "@/server/services/approval-notifications";
 import { sessionWhen } from "@/server/services/sessions";
 import { displayName } from "@/lib/names";
 
@@ -190,7 +191,8 @@ export const JOBS = {
   "unread-messages": emailUnreadMessages,
   "hours-digest": hoursDigest,
   "cleanup-rate-limits": cleanupRateLimits,
+  "approval-reminders": sendApprovalReminders,
 } as const;
 
 export type JobName = keyof typeof JOBS;
-export const FREQUENT: JobName[] = ["expire-requests", "reminders", "end-meetings", "report-alerts", "unread-messages", "cleanup-rate-limits"];
+export const FREQUENT: JobName[] = ["expire-requests", "reminders", "end-meetings", "report-alerts", "unread-messages", "cleanup-rate-limits", "approval-reminders"];

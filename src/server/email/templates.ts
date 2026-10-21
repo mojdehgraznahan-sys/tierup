@@ -70,22 +70,59 @@ export function parentConsentEmail(opts: {
   });
 }
 
-export function teacherEndorsementEmail(opts: {
+export type ApprovalEmailKind = "request" | "ready" | "reminder";
+
+/**
+ * Tutor approval emails to the endorsing teacher: the first request, the "ready to approve" follow-up
+ * once a parent consents, and one reminder. Approving always happens in TierUp after signing in.
+ */
+export function tutorApprovalEmail(opts: {
+  kind: ApprovalEmailKind;
   to: string;
   tutorName: string;
+  tutorGrade: string | null;
   schoolName: string | null;
-  subjects: string[];
+  subjects: { name: string; courseGrade: string | null }[];
+  consentGiven: boolean;
   url: string;
 }): Email {
-  const list = opts.subjects.join(", ");
-  return build(opts.to, `${opts.tutorName} asked you to approve them as a tutor`, {
-    kicker: "Tutor approval",
-    title: `${opts.tutorName} wants to tutor ${list}`,
+  const list = opts.subjects.map((s) => s.name).join(", ");
+  const who = `${opts.tutorName}${opts.tutorGrade ? ` (${opts.tutorGrade} grade${opts.schoolName ? `, ${opts.schoolName}` : ""})` : opts.schoolName ? ` (${opts.schoolName})` : ""}`;
+  const subjectLines = opts.subjects.map((s) => `• ${s.name}${s.courseGrade ? `: earned ${s.courseGrade}` : ""}`);
+  const consentLine = opts.consentGiven
+    ? "Their parent has given consent, so you can approve now."
+    : "Their parent hasn't given consent yet. You can review now and approve once they do; we'll email you when it's ready.";
+  const copy = {
+    request: {
+      subject: `${opts.tutorName} asked you to approve them as a tutor`,
+      kicker: "Tutor approval",
+      title: `${opts.tutorName} wants to tutor ${list}`,
+      intro: `${who} named you as the teacher who can vouch for them in:`,
+    },
+    ready: {
+      subject: `Ready for your approval: ${opts.tutorName}, ${list}`,
+      kicker: "Ready to approve",
+      title: `You can now approve ${opts.tutorName}`,
+      intro: `${who}'s parent has given consent. These subjects are waiting for you:`,
+    },
+    reminder: {
+      subject: `Reminder: ${opts.tutorName} is waiting for your approval`,
+      kicker: "Reminder",
+      title: `${opts.tutorName} is still waiting`,
+      intro: `${who} asked you to approve them as a tutor in:`,
+    },
+  }[opts.kind];
+  return build(opts.to, copy.subject, {
+    kicker: copy.kicker,
+    title: copy.title,
     paragraphs: [
-      `${opts.tutorName}${opts.schoolName ? ` (${opts.schoolName})` : ""} named you as the teacher who can vouch for them in: ${list}.`,
-      "Sign in with your school email to review the request. You can approve each subject separately and revoke approval at any time. Tutors earn service hours that you sign off on.",
+      copy.intro,
+      ...subjectLines,
+      opts.kind === "request" ? consentLine : "Their parent has given consent.",
+      "Approve each subject separately in TierUp; you can revoke approval at any time. Tutors earn service hours that you sign off on.",
     ],
-    cta: { label: "Review the request", url: opts.url },
+    cta: { label: "Review requests", url: opts.url },
+    footer: "You're receiving this because a student named you as their endorsing teacher on TierUp.",
   });
 }
 

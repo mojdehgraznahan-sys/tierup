@@ -7,9 +7,9 @@ import { Button, Card, Field } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import type { SchoolGroup } from "@/server/services/catalog";
 
-type Props = { schoolGroups: SchoolGroup[]; accountEmail: string; defaultName: string };
+type Props = { schoolGroups: SchoolGroup[]; accountEmail: string; defaultName: string; next?: string };
 
-export function StaffOnboardingForm({ schoolGroups, accountEmail, defaultName }: Props) {
+export function StaffOnboardingForm({ schoolGroups, accountEmail, defaultName, next }: Props) {
   const router = useRouter();
   const flash = useToast();
   const [pending, startTransition] = useTransition();
@@ -27,7 +27,7 @@ export function StaffOnboardingForm({ schoolGroups, accountEmail, defaultName }:
       if (!result.ok) return setError(result.error);
       if (result.status === "waitlisted") return setWaitlisted(result.schoolName);
       flash("You're set up as staff");
-      router.push("/staff");
+      router.push(next ?? "/staff");
     });
   }
 

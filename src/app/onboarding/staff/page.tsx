@@ -4,15 +4,20 @@ import { ExitLink, PublicHeader } from "@/components/app/public-header";
 import { StaffOnboardingForm } from "@/components/onboarding/staff-form";
 import { Button } from "@/components/ui/primitives";
 import { signOutAction } from "@/app/(app)/actions";
-import { homePathFor, requireUser } from "@/server/policies/session";
+import { homePathFor, requireUser, safeCallbackPath } from "@/server/policies/session";
 import { schoolGroups } from "@/server/services/catalog";
 import { staffDomainsRelaxed } from "@/server/demo";
 
 export const metadata: Metadata = { title: "Staff sign-up" };
 
-export default async function StaffOnboardingPage() {
-  const user = await requireUser("/onboarding/staff");
-  if (user.onboardedAt && user.roles.includes("staff")) redirect(homePathFor(user));
+type Props = { searchParams: Promise<{ next?: string }> };
+
+export default async function StaffOnboardingPage({ searchParams }: Props) {
+  const { next: rawNext } = await searchParams;
+  // Only staff pages are valid destinations after sign-up (e.g. the approvals view from an email).
+  const next = safeCallbackPath(rawNext)?.startsWith("/staff") ? rawNext : undefined;
+  const user = await requireUser(`/onboarding/staff${next ? `?next=${encodeURIComponent(next)}` : ""}`);
+  if (user.onboardedAt && user.roles.includes("staff")) redirect(next ?? homePathFor(user));
 
   return (
     <main className="mx-auto w-full max-w-[1120px] px-4 pb-16 sm:px-6">
@@ -36,7 +41,7 @@ export default async function StaffOnboardingPage() {
             </form>
           </>
         ) : (
-          <StaffOnboardingForm schoolGroups={await schoolGroups()} accountEmail={user.email} defaultName={user.name ?? ""} />
+          <StaffOnboardingForm schoolGroups={await schoolGroups()} accountEmail={user.email} defaultName={user.name ?? ""} next={next} />
         )}
       </div>
     </main>

@@ -5,7 +5,8 @@ import { db } from "@/server/db";
 import { demoSchoolsEnabled, staffDomainsRelaxed } from "@/server/demo";
 import { UserError } from "@/server/errors";
 import { sendEmailSafely } from "@/server/email/send";
-import { parentConsentEmail, teacherEndorsementEmail } from "@/server/email/templates";
+import { parentConsentEmail } from "@/server/email/templates";
+import { notifyTeachersOfRequests } from "@/server/services/approval-notifications";
 import { displayName } from "@/lib/names";
 import {
   customName,
@@ -61,7 +62,7 @@ export async function completeOnboarding(userId: string, raw: OnboardingInput) {
   const token = newToken();
   const fullName = `${input.firstName} ${input.lastName}`;
 
-  const created = await db.$transaction(async (tx) => {
+  await db.$transaction(async (tx) => {
     const custom: Subject[] = [];
     for (const name of customNames) {
       custom.push(await tx.subject.create({ data: { name, group: "Other", isCustom: true, createdById: userId } }));
@@ -125,8 +126,6 @@ export async function completeOnboarding(userId: string, raw: OnboardingInput) {
       await tx.schoolWaitlist.create({ data: { kind: "student", email: user.email, schoolName: input.school.schoolName } });
     }
 
-    const subjectNames = new Map([...catalog, ...custom].map((s) => [s.id, s.name]));
-    return { subjectIdForKey, subjectNames };
   });
 
   // Notifications (after commit, never failing the sign-up).
@@ -141,17 +140,8 @@ export async function completeOnboarding(userId: string, raw: OnboardingInput) {
     }),
   );
   if (input.role === "tutor") {
-    const byTeacher = new Map<string, string[]>();
-    for (const k of input.subjectKeys) {
-      const teacher = input.endorsements[k]!.teacherEmail;
-      const subject = created.subjectNames.get(created.subjectIdForKey(k))!;
-      byTeacher.set(teacher, [...(byTeacher.get(teacher) ?? []), subject]);
-    }
-    for (const [to, subjects] of byTeacher) {
-      await sendEmailSafely(
-        teacherEndorsementEmail({ to, tutorName: name, schoolName: school?.name ?? null, subjects, url: `${appUrl()}/onboarding/staff` }),
-      );
-    }
+    const requested = await db.tutorSubject.findMany({ where: { tutorId: userId }, select: { id: true } });
+    await notifyTeachersOfRequests(requested.map((r) => r.id));
   }
 
   return input.role === "tutor"

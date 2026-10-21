@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { UserError } from "@/server/errors";
 import { sendEmail } from "@/server/email/send";
 import { parentConsentEmail } from "@/server/email/templates";
+import { notifyTeachersReady } from "@/server/services/approval-notifications";
 import { displayName } from "@/lib/names";
 
 const RESEND_COOLDOWN_MS = 10 * 60 * 1000;
@@ -20,10 +21,12 @@ export async function getConsentByToken(token: string) {
 export async function decideConsent(token: string, decision: "approved" | "declined") {
   const consent = await db.parentConsent.findUnique({ where: { token } });
   if (!consent) throw new UserError("This consent link isn't valid. Ask your child to resend it.");
-  return db.parentConsent.update({
+  const updated = await db.parentConsent.update({
     where: { id: consent.id },
     data: { status: decision, decidedAt: new Date() },
   });
+  if (decision === "approved") await notifyTeachersReady(consent.studentId);
+  return updated;
 }
 
 /** The student resends the consent email (rate-limited). */

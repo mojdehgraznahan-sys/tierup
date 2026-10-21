@@ -119,6 +119,9 @@ gcloud run deploy tierup --region=$REGION \
   --set-env-vars="APP_URL=$APP_URL,AUTH_GOOGLE_ID=<client id>,EMAIL_FROM=TierUp <noreply@yourdomain.org>,MEET_PROVIDER=fake,ALLOW_FAKE_MEET=true,ADMIN_EMAILS=you@yourdomain.org"
 ```
 
+`TUTOR_APPROVAL_REMINDER_DAYS` (default 3; `0` turns it off) sets how long a tutor-approval request waits,
+after it becomes approvable, before the endorsing teacher gets one reminder email.
+
 `ADMIN_EMAILS` lists who can open `/admin` (schools, staff email domains, the waitlist). For several
 admins, gcloud needs a different list separator because it splits on commas:
 `gcloud run services update tierup --region=$REGION --update-env-vars="^;^ADMIN_EMAILS=a@x.org,b@x.org"`.

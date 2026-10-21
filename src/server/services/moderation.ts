@@ -18,7 +18,7 @@ import { shortDay } from "@/lib/time";
 
 // Staff moderation (SCREENS.md › 11). Every function is scoped to the staff member's own school.
 
-type Staff = { id: string; roles: Role[]; schoolId: string | null; name: string | null };
+type Staff = { id: string; roles: Role[]; schoolId: string | null; name: string | null; email?: string };
 const appUrl = () => process.env.APP_URL ?? "http://localhost:3000";
 
 function schoolOf(staff: Staff): string {
@@ -48,6 +48,9 @@ export async function approvalsQueue(staff: Staff) {
       subject: r.subject.name,
       courseGrade: r.courseGrade ?? "—",
       endorser: r.endorser?.name ?? r.endorserEmail ?? null,
+      // "For me": requests that named this teacher (linked account or the email the student typed).
+      forMe: r.endorserId === staff.id || (!!staff.email && r.endorserEmail?.toLowerCase() === staff.email.toLowerCase()),
+      tutorId: r.tutorId,
       consentGiven: r.tutor.consent?.status === "approved",
       status: r.status,
     }));

@@ -5,7 +5,8 @@ import { db } from "@/server/db";
 import { staffDomainsRelaxed } from "@/server/demo";
 import { UserError } from "@/server/errors";
 import { sendEmailSafely } from "@/server/email/send";
-import { parentConsentEmail, teacherEndorsementEmail } from "@/server/email/templates";
+import { parentConsentEmail } from "@/server/email/templates";
+import { notifyTeachersOfRequests } from "@/server/services/approval-notifications";
 import { newToken } from "@/server/services/onboarding";
 import { detectContactInfo } from "@/lib/moderation";
 import { displayName } from "@/lib/names";
@@ -166,32 +167,33 @@ export async function addTutorSubject(userId: string, raw: z.input<typeof tutorS
     throw new UserError(`Use your teacher's school email (…@${domains[0]}).`);
   }
 
-  const subject = await db.$transaction(async (tx) => {
+  const request = await db.$transaction(async (tx) => {
     const s = await resolveSubject(tx, userId, input);
     const existing = await tx.tutorSubject.findUnique({ where: { tutorId_subjectId: { tutorId: userId, subjectId: s.id } } });
     if (existing && existing.status !== "revoked") throw new UserError(`You've already asked to tutor ${s.name}.`);
     const staff = user.schoolId
       ? await tx.user.findFirst({ where: { email: input.teacherEmail, schoolId: user.schoolId, roles: { has: "staff" } } })
       : null;
-    const data = { endorserEmail: input.teacherEmail, endorserId: staff?.id ?? null, courseGrade: input.courseGrade ?? null, status: "pending" as const, decidedAt: null, decidedById: null };
-    await tx.tutorSubject.upsert({
+    const data = {
+      endorserEmail: input.teacherEmail,
+      endorserId: staff?.id ?? null,
+      courseGrade: input.courseGrade ?? null,
+      status: "pending" as const,
+      decidedAt: null,
+      decidedById: null,
+      readyNotifiedAt: null,
+      reminderSentAt: null,
+    };
+    return tx.tutorSubject.upsert({
       where: { tutorId_subjectId: { tutorId: userId, subjectId: s.id } },
       create: { tutorId: userId, subjectId: s.id, ...data },
       update: data,
+      include: { subject: true },
     });
-    return s;
   });
 
-  await sendEmailSafely(
-    teacherEndorsementEmail({
-      to: input.teacherEmail,
-      tutorName: displayName(user.name),
-      schoolName: user.school?.name ?? null,
-      subjects: [subject.name],
-      url: `${appUrl()}/onboarding/staff`,
-    }),
-  );
-  return { toast: `Approval request for ${subject.name} sent to your teacher` };
+  await notifyTeachersOfRequests([request.id]);
+  return { toast: `Approval request for ${request.subject.name} sent to your teacher` };
 }
 
 /** Stop tutoring a subject (or withdraw a pending request). Past sessions and hours are kept. */
