@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ConsentBanner } from "@/components/app/consent-banner";
 import { CompletedSessions } from "@/components/dashboard/completed-sessions";
 import { RequestInbox } from "@/components/dashboard/request-inbox";
+import { ActionButton } from "@/components/staff/action-button";
+import { resendApprovalAction } from "./actions";
 import { Card, Tag } from "@/components/ui/primitives";
 import { db } from "@/server/db";
 import { requireOnboarded } from "@/server/policies/session";
@@ -42,7 +44,7 @@ export default async function TutorDashboardPage() {
     tutorWeekCount(user.id),
     db.tutorSubject.findMany({
       where: { tutorId: user.id },
-      include: { subject: true, endorser: true },
+      include: { subject: true, endorser: { select: { name: true, email: true } } },
       orderBy: { subject: { name: "asc" } },
     }),
   ]);
@@ -166,7 +168,17 @@ export default async function TutorDashboardPage() {
               <b className="h text-lg">{s.subject.name}</b>
               <span className="card-meta">{endorserLine(s.status, s.endorser?.name ?? s.endorserEmail)}</span>
             </div>
-            <Tag tone={STATUS[s.status].tone}>{STATUS[s.status].label}</Tag>
+            <span className="flex flex-wrap items-center justify-end gap-2">
+              {s.status === "pending" && (s.endorser?.email ?? s.endorserEmail) && (
+                <>
+                  {s.requestSentAt && <span className="card-meta">sent {timeAgo(s.requestSentAt)}</span>}
+                  <ActionButton action={resendApprovalAction.bind(null, s.id)} variant="ghost" className="text-xs">
+                    Resend
+                  </ActionButton>
+                </>
+              )}
+              <Tag tone={STATUS[s.status].tone}>{STATUS[s.status].label}</Tag>
+            </span>
           </div>
         ))}
         <p className="muted m-0 pt-3 text-[13px]">

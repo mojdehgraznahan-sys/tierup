@@ -329,6 +329,8 @@ model TutorSubject {
   createdAt       DateTime           @default(now())
   decidedAt       DateTime?
   decidedById     String?
+  /// Last time the request email went to the endorsing teacher (first send or a tutor's resend).
+  requestSentAt   DateTime?
   /// When the endorsing teacher was told the request is ready to approve (parent consent given).
   readyNotifiedAt DateTime?
   /// When the one follow-up reminder went out (TUTOR_APPROVAL_REMINDER_DAYS after it was ready).

@@ -7,7 +7,7 @@ vi.mock("@/server/email/send", () => ({
   sendEmailSafely: async (e: Email) => void sent.push(e),
 }));
 
-import { reminderDays, sendApprovalReminders } from "@/server/services/approval-notifications";
+import { reminderDays, resendApprovalRequest, sendApprovalReminders } from "@/server/services/approval-notifications";
 import { completeOnboarding, becomeStaff } from "@/server/services/onboarding";
 import { decideConsent } from "@/server/services/consent";
 import { addTutorSubject } from "@/server/services/profile";
@@ -126,5 +126,34 @@ describe("approvals tab: For me", () => {
     const rows = await approvalsQueue(staff);
     expect(rows.filter((r) => r.forMe).map((r) => r.subject).sort()).toEqual(["Chemistry", "Geometry"]);
     expect(rows.find((r) => r.subject === "Algebra II")!.forMe).toBe(false);
+  });
+});
+
+
+describe("resend", () => {
+  it("resends a pending request to its teacher at most once an hour", async () => {
+    const { account } = await newTutor();
+    const [geo] = await db.tutorSubject.findMany({ where: { tutorId: account.id }, orderBy: { createdAt: "asc" } });
+    expect(geo!.requestSentAt).not.toBeNull();
+    sent.length = 0;
+
+    const sentAt = geo!.requestSentAt!.getTime();
+    await expect(resendApprovalRequest(account.id, geo!.id, new Date(sentAt + 10 * 60000))).rejects.toThrow(/resend in 50 min/);
+
+    const later = new Date(sentAt + 61 * 60000);
+    expect((await resendApprovalRequest(account.id, geo!.id, later)).toast).toBe("Sent again to mr.new@flinthill.org");
+    expect(toTeacher()).toHaveLength(1);
+    expect(toTeacher()[0]!.subject).toBe("Riya S. asked you to approve them as a tutor");
+    expect((await db.tutorSubject.findUniqueOrThrow({ where: { id: geo!.id } })).requestSentAt).toEqual(later);
+    await expect(resendApprovalRequest(account.id, geo!.id, new Date(later.getTime() + 60000))).rejects.toThrow(/resend in/);
+  });
+
+  it("refuses approved requests and other students' requests", async () => {
+    const { account } = await newTutor();
+    const [geo] = await db.tutorSubject.findMany({ where: { tutorId: account.id } });
+    const other = await makeAccount("someone@gmail.test");
+    await expect(resendApprovalRequest(other.id, geo!.id)).rejects.toThrow(/isn't on your list/);
+    await db.tutorSubject.update({ where: { id: geo!.id }, data: { status: "approved" } });
+    await expect(resendApprovalRequest(account.id, geo!.id)).rejects.toThrow(/Already approved/);
   });
 });
