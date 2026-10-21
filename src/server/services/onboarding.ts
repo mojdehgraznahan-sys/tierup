@@ -2,7 +2,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import type { Format, Prisma, Subject } from "@prisma/client";
 import { db } from "@/server/db";
-import { demoSchoolsEnabled } from "@/server/demo";
+import { demoSchoolsEnabled, staffDomainsRelaxed } from "@/server/demo";
 import { UserError } from "@/server/errors";
 import { sendEmailSafely } from "@/server/email/send";
 import { parentConsentEmail, teacherEndorsementEmail } from "@/server/email/templates";
@@ -48,7 +48,7 @@ export async function completeOnboarding(userId: string, raw: OnboardingInput) {
   if (catalog.length !== new Set(catalogIds).size) throw new UserError("One of those subjects isn't available. Please reselect.");
 
   if (input.role === "tutor") {
-    const domains = school?.staffEmailDomains ?? [];
+    const domains = staffDomainsRelaxed() ? [] : (school?.staffEmailDomains ?? []);
     for (const { teacherEmail } of Object.values(input.endorsements)) {
       if (teacherEmail === ownEmail) throw new UserError("Your endorsing teacher can't be you. Enter a teacher's email.");
       if (domains.length && !domains.includes(emailDomain(teacherEmail))) {
@@ -175,12 +175,13 @@ export async function becomeStaff(userId: string, raw: StaffOnboardingInput) {
   if (!school || (school.isDemo && !demoSchoolsEnabled())) throw new UserError("Pick your school from the list.");
 
   const domains = school.staffEmailDomains;
-  if (domains.length === 0) {
+  if (staffDomainsRelaxed()) {
+    // Testing mode: skip domain verification entirely.
+  } else if (domains.length === 0) {
     const exists = await db.schoolWaitlist.findFirst({ where: { kind: "staff", email: user.email, schoolId: school.id } });
     if (!exists) await db.schoolWaitlist.create({ data: { kind: "staff", email: user.email, schoolId: school.id } });
     return { status: "waitlisted" as const, schoolName: school.name };
-  }
-  if (!domains.includes(emailDomain(user.email))) {
+  } else if (!domains.includes(emailDomain(user.email))) {
     throw new UserError(`Sign in with your ${school.name} email address (…@${domains[0]}). You're signed in as ${user.email}.`);
   }
 

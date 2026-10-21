@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/primitives";
 import { signOutAction } from "@/app/(app)/actions";
 import { homePathFor, requireUser } from "@/server/policies/session";
 import { schoolGroups } from "@/server/services/catalog";
+import { staffDomainsRelaxed } from "@/server/demo";
 
 export const metadata: Metadata = { title: "Staff sign-up" };
 
@@ -18,6 +19,11 @@ export default async function StaffOnboardingPage() {
       <PublicHeader right={<ExitLink href="/for-schools" />} />
       <div className="flex max-w-[560px] flex-col gap-[18px] border-t border-divider py-9">
         <span className="kicker">Staff sign-up</span>
+        {staffDomainsRelaxed() && (
+          <p role="note" className="m-0 border border-accent-2-300 bg-accent-2-100 px-3 py-2 text-sm text-accent-2-800">
+            Testing mode: school email domains aren&apos;t checked, so any account can sign up as staff.
+          </p>
+        )}
         <h2>Which school do you teach at?</h2>
         {user.onboardedAt ? (
           <>

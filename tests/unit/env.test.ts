@@ -37,3 +37,9 @@ describe("production env check", () => {
     expect(productionEnvProblems({ ...good, RESEND_API_KEY: "", ALLOW_CONSOLE_EMAIL: "true", MEET_PROVIDER: "fake", ALLOW_FAKE_MEET: "true" })).toEqual([]);
   });
 });
+
+describe("testing switches in production", () => {
+  it("refuses RELAX_STAFF_DOMAINS", () => {
+    expect(productionEnvProblems({ ...good, RELAX_STAFF_DOMAINS: "true" }).join()).toMatch(/RELAX_STAFF_DOMAINS must be off/);
+  });
+});

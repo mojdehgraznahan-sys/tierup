@@ -213,3 +213,32 @@ describe("parent consent", () => {
     await expect(resendConsent(account.id)).rejects.toThrow(/already approved/);
   });
 });
+
+describe("testing switch: RELAX_STAFF_DOMAINS", () => {
+  it("skips domain checks for endorsing teachers and staff sign-up when on", async () => {
+    process.env.RELAX_STAFF_DOMAINS = "true";
+    try {
+      const school = await makeSchool("Flint Hill School", ["flinthill.org"]);
+      const [algebra] = await makeSubjects("Algebra II");
+      const tutor = await makeAccount("maya@gmail.test");
+      await completeOnboarding(
+        tutor.id,
+        input({
+          role: "tutor",
+          school: { kind: "listed", schoolId: school.id },
+          subjectKeys: [algebra!.id],
+          endorsements: { [algebra!.id]: { teacherEmail: "teacher@gmail.test" } },
+        }),
+      );
+      const teacher = await makeAccount("teacher@gmail.test");
+      expect(await becomeStaff(teacher.id, { schoolId: school.id, displayName: "Ms. Test" })).toEqual({ status: "ok" });
+      expect((await db.tutorSubject.findFirstOrThrow({ where: { tutorId: tutor.id } })).endorserId).toBe(teacher.id);
+
+      const noDomains = await makeSchool("Unverified School", []);
+      const other = await makeAccount("other@gmail.test");
+      expect(await becomeStaff(other.id, { schoolId: noDomains.id, displayName: "Mr. Test" })).toEqual({ status: "ok" });
+    } finally {
+      process.env.RELAX_STAFF_DOMAINS = "false";
+    }
+  });
+});

@@ -24,6 +24,8 @@ export function productionEnvProblems(env: Env = process.env): string[] {
   if (env.AUTH_SECRET && env.AUTH_SECRET.length < 32) problems.push("AUTH_SECRET is too short (use 32+ random characters)");
   if (env.CRON_SECRET && env.CRON_SECRET.length < 32) problems.push("CRON_SECRET is too short (use `openssl rand -hex 24`)");
 
+  if (env.RELAX_STAFF_DOMAINS === "true") problems.push("RELAX_STAFF_DOMAINS must be off in production (anyone could sign up as staff)");
+
   // Without Resend, emails (including sign-in links) would only be printed to the server log.
   if (!env.RESEND_API_KEY && env.ALLOW_CONSOLE_EMAIL !== "true") problems.push("RESEND_API_KEY is missing (email delivery)");
 

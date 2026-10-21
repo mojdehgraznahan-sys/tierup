@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/server/db";
-import { demoSchoolsEnabled } from "@/server/demo";
+import { demoSchoolsEnabled, staffDomainsRelaxed } from "@/server/demo";
 
 const STATE_LABEL = { DC: "Washington, DC", MD: "Maryland", VA: "Virginia" } as const;
 
@@ -14,7 +14,8 @@ export async function schoolGroups(): Promise<SchoolGroup[]> {
     id: s.id,
     name: s.name,
     hasStaffDomains: s.staffEmailDomains.length > 0,
-    staffDomain: s.staffEmailDomains[0],
+    // Hidden in testing mode so the forms don't enforce or hint at a domain.
+    staffDomain: staffDomainsRelaxed() ? undefined : s.staffEmailDomains[0],
   });
   const groups: SchoolGroup[] = (["DC", "MD", "VA"] as const).map((state) => ({
     label: STATE_LABEL[state],

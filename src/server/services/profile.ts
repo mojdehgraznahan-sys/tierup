@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import type { Format, Prisma } from "@prisma/client";
 import { db } from "@/server/db";
+import { staffDomainsRelaxed } from "@/server/demo";
 import { UserError } from "@/server/errors";
 import { sendEmailSafely } from "@/server/email/send";
 import { parentConsentEmail, teacherEndorsementEmail } from "@/server/email/templates";
@@ -35,7 +36,7 @@ export async function settingsView(userId: string) {
     schoolEmail: user.schoolEmail ?? "",
     bio: user.bio ?? "",
     formats: user.formats,
-    school: user.school ? { name: user.school.name, staffDomain: user.school.staffEmailDomains[0] ?? null } : null,
+    school: user.school ? { name: user.school.name, staffDomain: staffDomainsRelaxed() ? null : (user.school.staffEmailDomains[0] ?? null) } : null,
     slots: (user.school?.slots ?? []).filter((s) => s.block !== "weekend").map((s) => ({ id: s.id, label: s.label })),
     availability: user.availability.map((a) => `${a.weekday}:${a.slotId}`),
     learnerSubjects: user.learnerSubjects.map((l) => ({ id: l.subjectId, name: l.subject.name })),
@@ -160,7 +161,7 @@ export async function addTutorSubject(userId: string, raw: z.input<typeof tutorS
   if (!user.roles.includes("tutor")) throw new UserError("Only tutors can add subjects to teach.");
   if (input.teacherEmail === user.email.toLowerCase()) throw new UserError("Your endorsing teacher can't be you.");
   if (input.teacherEmail === user.consent?.parentEmail) throw new UserError("Your parent and your teacher need different email addresses.");
-  const domains = user.school?.staffEmailDomains ?? [];
+  const domains = staffDomainsRelaxed() ? [] : (user.school?.staffEmailDomains ?? []);
   if (domains.length && !domains.includes(emailDomain(input.teacherEmail))) {
     throw new UserError(`Use your teacher's school email (…@${domains[0]}).`);
   }
