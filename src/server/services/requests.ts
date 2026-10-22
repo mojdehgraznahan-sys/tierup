@@ -6,6 +6,7 @@ import { sendEmailSafely } from "@/server/email/send";
 import { newRequestEmail, requestResponseEmail } from "@/server/email/templates";
 import { discoverableTutor, discoverableTutorSubject, effectiveFormats } from "@/server/policies/discoverability";
 import { displayName, gradeLabel } from "@/lib/names";
+import { parentConsentEnabled } from "@/server/policies/rules";
 
 export const REQUEST_TTL_MS = 48 * 60 * 60 * 1000;
 const MAX_OPEN_REQUESTS = 5;
@@ -112,7 +113,9 @@ export async function respondToRequest(tutorId: string, requestId: string, messa
   const tutor = await db.user.findFirst({
     where: { id: tutorId, ...discoverableTutor(), tutorSubjects: { some: discoverableTutorSubject(request.subjectId) } },
   });
-  if (!tutor) throw new UserError(`You need teacher approval for ${request.subject.name} (and parent consent) to reply.`);
+  if (!tutor) {
+    throw new UserError(`You need teacher approval for ${request.subject.name}${parentConsentEnabled() ? " (and parent consent)" : ""} to reply.`);
+  }
   if (effectiveFormats(tutor, request.learner.schoolId).length === 0) {
     throw new UserError("This learner is at another school, so you'd need to offer online sessions.");
   }

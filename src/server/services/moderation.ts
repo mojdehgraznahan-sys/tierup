@@ -13,6 +13,7 @@ import {
 } from "@/server/email/templates";
 import { getMeetProvider } from "@/server/integrations/meet";
 import { sessionWhen } from "@/server/services/sessions";
+import { parentConsentEnabled, parentEmailFor } from "@/server/policies/rules";
 import { displayName, gradeLabel } from "@/lib/names";
 import { shortDay } from "@/lib/time";
 
@@ -51,7 +52,7 @@ export async function approvalsQueue(staff: Staff) {
       // "For me": requests that named this teacher (linked account or the email the student typed).
       forMe: r.endorserId === staff.id || (!!staff.email && r.endorserEmail?.toLowerCase() === staff.email.toLowerCase()),
       tutorId: r.tutorId,
-      consentGiven: r.tutor.consent?.status === "approved",
+      consentGiven: !parentConsentEnabled() || r.tutor.consent?.status === "approved",
       status: r.status,
     }));
 }
@@ -69,7 +70,7 @@ async function ownTutorSubject(staff: Staff, id: string) {
 /** Approve one tutor subject. Blocked until the tutor's parent has consented. */
 export async function approveTutorSubject(staff: Staff, id: string) {
   const ts = await ownTutorSubject(staff, id);
-  if (ts.tutor.consent?.status !== "approved") throw new UserError("You can approve once a parent has consented.");
+  if (parentConsentEnabled() && ts.tutor.consent?.status !== "approved") throw new UserError("You can approve once a parent has consented.");
   if (ts.status === "approved") return { toast: "Already approved" };
   await db.tutorSubject.update({ where: { id }, data: { status: "approved", decidedAt: new Date(), decidedById: staff.id } });
   await sendEmailSafely(
@@ -320,7 +321,8 @@ export async function pauseReportedTutor(staff: Staff, id: string) {
     const email = (to: string) =>
       sessionCancelledEmail({ to, byName: "School staff", subject: s.subject.name, when, reason: "The tutor is unavailable", url: `${appUrl()}/find` });
     await sendEmailSafely(email(s.learner.email));
-    if (s.learner.consent) await sendEmailSafely(email(s.learner.consent.parentEmail));
+    const parentTo = parentEmailFor(s.learner.consent);
+    if (parentTo) await sendEmailSafely(email(parentTo));
   }
   await sendEmailSafely(pausedEmail({ to: tutor.email, name: displayName(tutor.name), schoolName: await schoolName(schoolId), cancelled: future.length }));
   return { toast: `${displayName(tutor.name)} is paused from tutoring${future.length ? `; ${future.length} session${future.length === 1 ? "" : "s"} cancelled` : ""}` };
@@ -338,6 +340,7 @@ export async function unpauseTutor(staff: Staff, id: string) {
 
 /** Emails both families (the reporter's and the reported student's parents). */
 export async function notifyParents(staff: Staff, id: string) {
+  if (!parentConsentEnabled()) throw new UserError("Parent contacts aren't collected right now.");
   const { report, schoolId } = await ownReport(staff, id);
   const name = await schoolName(schoolId);
   const sent: string[] = [];

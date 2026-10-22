@@ -6,6 +6,7 @@ import { sendEmailSafely } from "@/server/email/send";
 import { sessionCancelledEmail, sessionConfirmedEmail, sessionSummaryEmail } from "@/server/email/templates";
 import { getMeetProvider } from "@/server/integrations/meet";
 import { sessionWhen } from "@/server/services/sessions";
+import { parentEmailFor } from "@/server/policies/rules";
 import { displayName } from "@/lib/names";
 
 export const REVIEW_TAGS = ["Explained clearly", "Patient", "On time", "Prepared"] as const;
@@ -93,10 +94,11 @@ export async function completeAndReview(learnerId: string, sessionId: string, ra
       sessionConfirmedEmail({ to: s.tutor.email, learnerName, subject: s.subject.name, when: when(s), hours, url: `${appUrl()}/dashboard` }),
     );
   }
-  if (s.learner.consent?.sendSummaries) {
+  const summaryTo = s.learner.consent?.sendSummaries ? parentEmailFor(s.learner.consent) : null;
+  if (summaryTo) {
     await sendEmailSafely(
       sessionSummaryEmail({
-        to: s.learner.consent.parentEmail,
+        to: summaryTo,
         studentName: learnerName,
         tutorName,
         subject: s.subject.name,
@@ -147,7 +149,8 @@ export async function cancelSession(userId: string, sessionId: string, raw: z.in
   const url = `${appUrl()}/sessions/${s.threadId}`;
   const email = (to: string) => sessionCancelledEmail({ to, byName, subject: s.subject.name, when: when(s), reason: reason || null, url });
   await sendEmailSafely(email(byLearner ? s.tutor.email : s.learner.email));
-  if (s.learner.consent) await sendEmailSafely(email(s.learner.consent.parentEmail));
+  const parentTo = parentEmailFor(s.learner.consent);
+  if (parentTo) await sendEmailSafely(email(parentTo));
 
   return { toast: "Session cancelled. We let everyone know." };
 }

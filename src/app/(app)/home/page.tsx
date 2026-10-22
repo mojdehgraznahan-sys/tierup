@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ConsentBanner } from "@/components/app/consent-banner";
+import { parentConsentEnabled } from "@/server/policies/rules";
 import { OpenRequests } from "@/components/discovery/open-requests";
 import { ResponseCard } from "@/components/discovery/response-card";
 import { TutorMiniCard } from "@/components/discovery/tutor-card";
@@ -38,7 +39,7 @@ export default async function StudentHomePage() {
         </ButtonLink>
       </div>
 
-      {consent && consent.status !== "approved" && (
+      {parentConsentEnabled() && consent && consent.status !== "approved" && (
         <div className="mb-6">
           <ConsentBanner status={consent.status} parentEmail={consent.parentEmail} blocked="book" />
         </div>

@@ -43,8 +43,9 @@ export const onboardingSchema = z
       .array(z.enum(["before_school", "lunch", "after_school", "evening", "weekend"]))
       .min(1, "Pick at least one time you're usually free"),
     format: z.enum(["in_person", "online", "both"]),
-    parentEmail: email,
-    sendSummaries: z.boolean(),
+    // Only used while parent consent is switched on (PARENT_CONSENT=true).
+    parentEmail: z.union([email, z.literal("")]).optional(),
+    sendSummaries: z.boolean().default(true),
   })
   .superRefine((v, ctx) => {
     for (const key of v.subjectKeys) {
@@ -58,7 +59,7 @@ export const onboardingSchema = z
         ctx.addIssue({ code: "custom", path: ["endorsements"], message: "Add a teacher's email for every subject you want to teach" });
       }
       const emails = Object.values(v.endorsements).map((e) => e.teacherEmail);
-      if (emails.includes(v.parentEmail)) {
+      if (v.parentEmail && emails.includes(v.parentEmail)) {
         ctx.addIssue({ code: "custom", path: ["parentEmail"], message: "Your parent and your teacher need different email addresses" });
       }
     }

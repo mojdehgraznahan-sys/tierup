@@ -3,7 +3,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { signOut } from "@/auth";
-import { toActionResult } from "@/server/errors";
+import { toActionResult, UserError } from "@/server/errors";
+import { parentConsentEnabled } from "@/server/policies/rules";
 import { requireOnboarded } from "@/server/policies/session";
 import { resendConsent } from "@/server/services/consent";
 import { MODE_COOKIE } from "@/components/app/mode";
@@ -22,6 +23,7 @@ export async function switchMode(mode: "learner" | "tutor") {
 export async function resendConsentAction() {
   const user = await requireOnboarded(["learner", "tutor"]);
   return toActionResult(async () => {
+    if (!parentConsentEnabled()) throw new UserError("Parent consent isn't needed right now.");
     await resendConsent(user.id);
     return { toast: "Consent link sent to your parent again" };
   });

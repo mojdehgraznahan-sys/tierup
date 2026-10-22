@@ -1,8 +1,13 @@
 import Link from "next/link";
 import { ButtonLink, Card, Wordmark } from "@/components/ui/primitives";
+import { parentConsentEnabled } from "@/server/policies/rules";
 
-const STEPS = [
-  { n: "01", title: "Sign up with your school", body: "A parent gives consent for students under 18." },
+const steps = () => [
+  {
+    n: "01",
+    title: "Sign up with your school",
+    body: parentConsentEnabled() ? "A parent gives consent for students under 18." : "Pick your school and the classes you want help with or can teach.",
+  },
   { n: "02", title: "Match by subject", body: "Only teacher-approved tutors show up." },
   { n: "03", title: "Meet in person or online", body: "Every online session gets its own one-time Meet link." },
 ];
@@ -49,7 +54,7 @@ export default function LandingPage() {
       </section>
 
       <section className="mt-12 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-6 border-t border-divider pt-12">
-        {STEPS.map((s) => (
+        {steps().map((s) => (
           <div key={s.n} className="flex flex-col gap-1">
             <span className="kicker">{s.n}</span>
             <b className="h text-xl">{s.title}</b>

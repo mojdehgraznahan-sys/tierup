@@ -1,8 +1,9 @@
 import type { Format, Prisma } from "@prisma/client";
+import { parentConsentEnabled } from "./rules";
 
 /**
  * BACKEND.md › Discoverability: a tutor shows for a subject only if that TutorSubject is approved,
- * the tutor isn't paused, and their parent consent is approved.
+ * the tutor isn't paused, and (when parent consent is on) their parent consent is approved.
  */
 export function discoverableTutorSubject(subjectId?: string): Prisma.TutorSubjectWhereInput {
   return {
@@ -16,7 +17,7 @@ export function discoverableTutor(): Prisma.UserWhereInput {
   return {
     onboardedAt: { not: null },
     roles: { has: "tutor" },
-    consent: { is: { status: "approved" } },
+    ...(parentConsentEnabled() ? { consent: { is: { status: "approved" as const } } } : {}),
     OR: [{ tutorStatus: { is: null } }, { tutorStatus: { is: { paused: false } } }],
   };
 }

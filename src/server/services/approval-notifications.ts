@@ -5,6 +5,7 @@ import { UserError } from "@/server/errors";
 import { sendEmailSafely } from "@/server/email/send";
 import { tutorApprovalEmail, type ApprovalEmailKind } from "@/server/email/templates";
 import { displayName, gradeLabel } from "@/lib/names";
+import { parentConsentEnabled } from "@/server/policies/rules";
 
 // Emails to endorsing teachers about tutor-subject approval requests:
 //   request  – when a student asks (onboarding, or adding a subject in Settings)
@@ -59,7 +60,7 @@ async function sendGrouped(rows: Row[], kind: ApprovalEmailKind) {
         tutorGrade: gradeLabel(t.grade) || null,
         schoolName: t.school?.name ?? null,
         subjects: group.map((r) => ({ name: r.subject.name, courseGrade: r.courseGrade })),
-        consentGiven: t.consent?.status === "approved",
+        consentGiven: parentConsentEnabled() ? t.consent?.status === "approved" : null,
         url: approvalsLink(t.id),
       }),
     );
@@ -73,7 +74,7 @@ export async function notifyTeachersOfRequests(tutorSubjectIds: string[], now = 
   const rows = await loadRows({ id: { in: tutorSubjectIds }, status: "pending" });
   const sent = await sendGrouped(rows, "request");
   if (rows.length) await db.tutorSubject.updateMany({ where: { id: { in: rows.map((r) => r.id) } }, data: { requestSentAt: now } });
-  const ready = rows.filter((r) => r.tutor.consent?.status === "approved").map((r) => r.id);
+  const ready = rows.filter((r) => !parentConsentEnabled() || r.tutor.consent?.status === "approved").map((r) => r.id);
   if (ready.length) await db.tutorSubject.updateMany({ where: { id: { in: ready } }, data: { readyNotifiedAt: now } });
   return sent;
 }

@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import type { Format, Prisma, Subject } from "@prisma/client";
 import { db } from "@/server/db";
 import { demoSchoolsEnabled, staffDomainsRelaxed } from "@/server/demo";
+import { parentConsentEnabled } from "@/server/policies/rules";
 import { UserError } from "@/server/errors";
 import { sendEmailSafely } from "@/server/email/send";
 import { parentConsentEmail } from "@/server/email/templates";
@@ -33,7 +34,9 @@ export async function completeOnboarding(userId: string, raw: OnboardingInput) {
   if (user.onboardedAt) throw new UserError("You've already finished signing up.");
 
   const ownEmail = user.email.toLowerCase();
-  if (input.parentEmail === ownEmail) throw new UserError("Enter your parent's email, not your own.");
+  const consentOn = parentConsentEnabled();
+  if (consentOn && !input.parentEmail) throw new UserError("Enter your parent's email.");
+  if (consentOn && input.parentEmail === ownEmail) throw new UserError("Enter your parent's email, not your own.");
 
   const school =
     input.school.kind === "listed"
@@ -116,7 +119,7 @@ export async function completeOnboarding(userId: string, raw: OnboardingInput) {
       await tx.tutorStatus.upsert({ where: { tutorId: userId }, create: { tutorId: userId }, update: {} });
     }
 
-    await tx.parentConsent.upsert({
+    if (consentOn && input.parentEmail) await tx.parentConsent.upsert({
       where: { studentId: userId },
       create: { studentId: userId, parentEmail: input.parentEmail, token, sendSummaries: input.sendSummaries },
       update: { parentEmail: input.parentEmail, token, sendSummaries: input.sendSummaries, status: "pending", decidedAt: null, lastSentAt: new Date() },
@@ -130,15 +133,17 @@ export async function completeOnboarding(userId: string, raw: OnboardingInput) {
 
   // Notifications (after commit, never failing the sign-up).
   const name = displayName(fullName);
-  await sendEmailSafely(
-    parentConsentEmail({
-      to: input.parentEmail,
-      studentName: name,
-      schoolName: school?.name ?? null,
-      role: input.role,
-      url: `${appUrl()}/consent/${token}`,
-    }),
-  );
+  if (consentOn && input.parentEmail) {
+    await sendEmailSafely(
+      parentConsentEmail({
+        to: input.parentEmail,
+        studentName: name,
+        schoolName: school?.name ?? null,
+        role: input.role,
+        url: `${appUrl()}/consent/${token}`,
+      }),
+    );
+  }
   if (input.role === "tutor") {
     const requested = await db.tutorSubject.findMany({ where: { tutorId: userId }, select: { id: true } });
     await notifyTeachersOfRequests(requested.map((r) => r.id));
@@ -146,7 +151,7 @@ export async function completeOnboarding(userId: string, raw: OnboardingInput) {
 
   return input.role === "tutor"
     ? { redirectTo: "/dashboard", toast: "Approval requests sent to your teachers" }
-    : { redirectTo: "/home", toast: "Consent link sent to your parent" };
+    : { redirectTo: "/home", toast: consentOn ? "Consent link sent to your parent" : "You're all set" };
 }
 
 /**

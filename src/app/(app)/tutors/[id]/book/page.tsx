@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ConsentBanner } from "@/components/app/consent-banner";
+import { parentConsentEnabled } from "@/server/policies/rules";
 import { BookingForm } from "@/components/booking/booking-form";
 import { requireOnboarded } from "@/server/policies/session";
 import { bookingGrid } from "@/server/services/booking";
@@ -57,7 +58,7 @@ export default async function BookPage({ params, searchParams }: Props) {
         </nav>
       </div>
 
-      {consent && consent.status !== "approved" && (
+      {parentConsentEnabled() && consent && consent.status !== "approved" && (
         <div className="pt-4">
           <ConsentBanner status={consent.status} parentEmail={consent.parentEmail} blocked="book" />
         </div>

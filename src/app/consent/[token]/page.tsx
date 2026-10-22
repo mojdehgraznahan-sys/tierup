@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { PublicHeader } from "@/components/app/public-header";
 import { Button, Card, Tag } from "@/components/ui/primitives";
 import { decideConsent, getConsentByToken } from "@/server/services/consent";
+import { parentConsentEnabled } from "@/server/policies/rules";
 import { displayName, gradeLabel } from "@/lib/names";
 
 export const metadata: Metadata = { title: "Parent consent", robots: { index: false } };
@@ -17,6 +18,7 @@ const SAFETY = [
 ];
 
 export default async function ConsentPage({ params }: Props) {
+  if (!parentConsentEnabled()) notFound();
   const { token } = await params;
   const consent = await getConsentByToken(token);
   if (!consent) notFound();

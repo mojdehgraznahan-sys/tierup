@@ -83,15 +83,19 @@ export function tutorApprovalEmail(opts: {
   tutorGrade: string | null;
   schoolName: string | null;
   subjects: { name: string; courseGrade: string | null }[];
-  consentGiven: boolean;
+  /** null when parent consent isn't part of the process. */
+  consentGiven: boolean | null;
   url: string;
 }): Email {
   const list = opts.subjects.map((s) => s.name).join(", ");
   const who = `${opts.tutorName}${opts.tutorGrade ? ` (${opts.tutorGrade} grade${opts.schoolName ? `, ${opts.schoolName}` : ""})` : opts.schoolName ? ` (${opts.schoolName})` : ""}`;
   const subjectLines = opts.subjects.map((s) => `• ${s.name}${s.courseGrade ? `: earned ${s.courseGrade}` : ""}`);
-  const consentLine = opts.consentGiven
-    ? "Their parent has given consent, so you can approve now."
-    : "Their parent hasn't given consent yet. You can review now and approve once they do; we'll email you when it's ready.";
+  const consentLine =
+    opts.consentGiven === null
+      ? "You can review and approve it now."
+      : opts.consentGiven
+        ? "Their parent has given consent, so you can approve now."
+        : "Their parent hasn't given consent yet. You can review now and approve once they do; we'll email you when it's ready.";
   const copy = {
     request: {
       subject: `${opts.tutorName} asked you to approve them as a tutor`,
@@ -118,7 +122,7 @@ export function tutorApprovalEmail(opts: {
     paragraphs: [
       copy.intro,
       ...subjectLines,
-      opts.kind === "request" ? consentLine : "Their parent has given consent.",
+      opts.kind === "request" ? consentLine : opts.consentGiven === null ? "You can approve it now." : "Their parent has given consent.",
       "Approve each subject separately in TierUp; you can revoke approval at any time. Tutors earn service hours that you sign off on.",
     ],
     cta: { label: "Review requests", url: opts.url },

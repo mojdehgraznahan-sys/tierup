@@ -7,7 +7,7 @@ import { sendEmailSafely } from "@/server/email/send";
 import { bookingEmail, parentBookingEmail } from "@/server/email/templates";
 import { getMeetProvider } from "@/server/integrations/meet";
 import { discoverableTutor, discoverableTutorSubject, effectiveFormats } from "@/server/policies/discoverability";
-import { hasParentConsent } from "@/server/policies/rules";
+import { hasParentConsent, parentEmailFor } from "@/server/policies/rules";
 import { sessionWhen } from "@/server/services/sessions";
 import { cellState, SESSION_MINUTES, WEEKS_AHEAD, weekParam, type CellState } from "@/lib/booking";
 import { displayName } from "@/lib/names";
@@ -269,9 +269,10 @@ export async function createBooking(learnerId: string, raw: z.input<typeof booki
   const learnerName = displayName(session.learner.name);
   await sendEmailSafely(bookingEmail({ to: session.learner.email, otherName: tutorName, subject: session.subject.name, when, where, meetUrl, url }));
   await sendEmailSafely(bookingEmail({ to: session.tutor.email, otherName: learnerName, subject: session.subject.name, when, where, meetUrl, url }));
-  if (session.learner.consent) {
+  const parentTo = parentEmailFor(session.learner.consent);
+  if (parentTo) {
     await sendEmailSafely(
-      parentBookingEmail({ to: session.learner.consent.parentEmail, studentName: learnerName, tutorName, subject: session.subject.name, when, where }),
+      parentBookingEmail({ to: parentTo, studentName: learnerName, tutorName, subject: session.subject.name, when, where }),
     );
   }
 

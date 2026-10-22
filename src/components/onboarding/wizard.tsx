@@ -26,12 +26,14 @@ type FormatChoice = "in_person" | "online" | "both";
 type CourseGrade = (typeof COURSE_GRADES)[number];
 type Endorsement = { teacherEmail: string; courseGrade?: CourseGrade };
 
-const STEPS = ["Role", "School", "Subjects", "Availability", "Consent"];
+const BASE_STEPS = ["Role", "School", "Subjects", "Availability"];
 const NOT_LISTED = "__none";
 const isEmail = (v: string) => z.string().email().safeParse(v.trim()).success;
 
 type Props = {
   initialRole: Role;
+  /** Adds the parent consent step (PARENT_CONSENT=true). */
+  consentEnabled: boolean;
   initialFirstName: string;
   initialLastName: string;
   accountEmail: string;
@@ -45,6 +47,7 @@ export function OnboardingWizard(props: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  const STEPS = props.consentEnabled ? [...BASE_STEPS, "Consent"] : BASE_STEPS;
   const [step, setStep] = useState(0);
   const [role, setRole] = useState<Role>(props.initialRole);
   const [firstName, setFirstName] = useState(props.initialFirstName);
@@ -105,7 +108,7 @@ export function OnboardingWizard(props: Props) {
       }
     }
     if (step === 3 && blocks.length === 0) return "Pick at least one time you're usually free.";
-    if (step === 4) {
+    if (step === 4 && props.consentEnabled) {
       if (!isEmail(parentEmail)) return "Enter your parent's email.";
       if (parentEmail.trim().toLowerCase() === props.accountEmail.toLowerCase()) return "Enter your parent's email, not your own.";
     }
@@ -132,8 +135,7 @@ export function OnboardingWizard(props: Props) {
       endorsements: role === "tutor" ? Object.fromEntries(selected.map((k) => [k, endorsements[k]!])) : {},
       blocks,
       format,
-      parentEmail,
-      sendSummaries,
+      ...(props.consentEnabled ? { parentEmail, sendSummaries } : {}),
     };
     startTransition(async () => {
       const result = await finishOnboarding(input);
@@ -372,7 +374,7 @@ export function OnboardingWizard(props: Props) {
           </>
         )}
 
-        {step === 4 && (
+        {step === 4 && props.consentEnabled && (
           <>
             <h2>Parent or guardian consent</h2>
             <p className="muted m-0">

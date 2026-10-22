@@ -19,6 +19,7 @@ import { Card, Tag } from "@/components/ui/primitives";
 import { requireOnboarded } from "@/server/policies/session";
 import { approvalsQueue, hoursQueue, reportsQueue, sessionLog } from "@/server/services/moderation";
 import { timeAgo } from "@/lib/format";
+import { parentConsentEnabled } from "@/server/policies/rules";
 
 export const metadata: Metadata = { title: "Moderation" };
 
@@ -76,6 +77,7 @@ async function Approvals({ staff, scope, tutorId }: { staff: StaffUser; scope?: 
   const rows = showMine ? mine : all;
   const href = (s: "mine" | "all") => `/staff?tab=approvals&scope=${s}${tutorId ? `&tutor=${tutorId}` : ""}`;
   const pendingMine = mine.filter((a) => a.status === "pending").length;
+  const showConsent = parentConsentEnabled();
 
   return (
     <>
@@ -104,7 +106,7 @@ async function Approvals({ staff, scope, tutorId }: { staff: StaffUser; scope?: 
                 <th>Subject</th>
                 <th>Grade</th>
                 <th>Endorser</th>
-                <th>Parent consent</th>
+                {showConsent && <th>Parent consent</th>}
                 <th />
               </tr>
             </thead>
@@ -115,9 +117,11 @@ async function Approvals({ staff, scope, tutorId }: { staff: StaffUser; scope?: 
                   <td>{a.subject}</td>
                   <td>{a.courseGrade}</td>
                   <td className="muted text-[13px]">{a.endorser ?? "—"}</td>
-                  <td>
-                    <Tag tone={a.consentGiven ? "accent" : "neutral"}>{a.consentGiven ? "✓ Given" : "Pending"}</Tag>
-                  </td>
+                  {showConsent && (
+                    <td>
+                      <Tag tone={a.consentGiven ? "accent" : "neutral"}>{a.consentGiven ? "✓ Given" : "Pending"}</Tag>
+                    </td>
+                  )}
                   <td className="text-right">
                     {a.status === "approved" ? (
                       <ActionButton action={revokeSubjectAction.bind(null, a.id)} confirm={`Revoke ${a.student.split(" ·")[0]}'s approval for ${a.subject}?`}>
@@ -138,8 +142,8 @@ async function Approvals({ staff, scope, tutorId }: { staff: StaffUser; scope?: 
         </TableWrap>
       )}
       <p className="muted text-xs">
-        You approve each subject separately and can revoke approval at any time. You can approve once a parent has consented; we email
-        the named teacher when that happens.
+        You approve each subject separately and can revoke approval at any time.
+        {showConsent && " You can approve once a parent has consented; we email the named teacher when that happens."}
       </p>
     </>
   );
@@ -262,9 +266,11 @@ async function Reports({ staff }: { staff: StaffUser }) {
                   Pause tutor
                 </ActionButton>
               ))}
-            <ActionButton action={notifyParentsAction.bind(null, r.id)} variant="ghost" confirm="Email both families about this report?">
-              Notify parents
-            </ActionButton>
+            {parentConsentEnabled() && (
+              <ActionButton action={notifyParentsAction.bind(null, r.id)} variant="ghost" confirm="Email both families about this report?">
+                Notify parents
+              </ActionButton>
+            )}
             {r.threadId && (
               <Link href={`/sessions/${r.threadId}`} className="ml-auto text-[13px]">
                 Open full chat →

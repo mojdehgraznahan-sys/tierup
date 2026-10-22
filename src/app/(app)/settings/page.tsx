@@ -11,6 +11,7 @@ import {
 import { requireOnboarded } from "@/server/policies/session";
 import { subjectGroups } from "@/server/services/catalog";
 import { settingsView } from "@/server/services/profile";
+import { parentConsentEnabled } from "@/server/policies/rules";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -37,7 +38,7 @@ export default async function SettingsPage() {
       {(isLearner || isTutor) && <AvailabilitySection slots={v.slots} selected={v.availability} hasSchool={!!v.school} />}
       {isLearner && <LearnerSubjectsSection subjects={v.learnerSubjects} groups={groups} />}
       {isTutor && <TutorSubjectsSection subjects={v.tutorSubjects} groups={groups} staffDomain={v.school?.staffDomain ?? null} />}
-      {v.consent && <ParentSection parentEmail={v.consent.parentEmail} status={v.consent.status} sendSummaries={v.consent.sendSummaries} />}
+      {parentConsentEnabled() && v.consent && <ParentSection parentEmail={v.consent.parentEmail} status={v.consent.status} sendSummaries={v.consent.sendSummaries} />}
     </div>
   );
 }

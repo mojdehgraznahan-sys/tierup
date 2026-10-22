@@ -5,6 +5,7 @@ import { OnboardingWizard } from "@/components/onboarding/wizard";
 import { homePathFor, requireUser } from "@/server/policies/session";
 import { schoolGroups, subjectGroups } from "@/server/services/catalog";
 import { firstName } from "@/lib/names";
+import { parentConsentEnabled } from "@/server/policies/rules";
 
 export const metadata: Metadata = { title: "Sign up" };
 
@@ -23,6 +24,7 @@ export default async function OnboardingPage({ searchParams }: Props) {
       <PublicHeader right={<ExitLink />} />
       <OnboardingWizard
         initialRole={role === "tutor" ? "tutor" : "learner"}
+        consentEnabled={parentConsentEnabled()}
         initialFirstName={firstName(user.name)}
         initialLastName={nameParts.length > 1 ? nameParts.slice(1).join(" ") : ""}
         accountEmail={user.email}
