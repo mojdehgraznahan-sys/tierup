@@ -203,6 +203,22 @@ export function sessionSummaryEmail(opts: { to: string; studentName: string; tut
   });
 }
 
+/** The AI summary, to the learner and the tutor. */
+export function aiSessionSummaryEmail(opts: { to: string; otherName: string; subject: string; when: string; topics: string[]; nextSteps: string[]; url: string }): Email {
+  return build(opts.to, `What you covered: ${opts.subject} with ${opts.otherName}`, {
+    kicker: "Session summary",
+    title: `${opts.subject} with ${opts.otherName}`,
+    paragraphs: [
+      `${opts.when}. Here's what you covered, summarized by AI from the tutor's notes and your chat.`,
+      "Topics covered:",
+      ...opts.topics.map((t) => `• ${t}`),
+      ...(opts.nextSteps.length ? ["Practice next:", ...opts.nextSteps.map((s) => `• ${s}`)] : []),
+      "AI can get things wrong, so check anything that looks off with your tutor. School staff can see this summary too.",
+    ],
+    cta: { label: "Open the session", url: opts.url },
+  });
+}
+
 export function sessionCancelledEmail(opts: { to: string; byName: string; subject: string; when: string; reason: string | null; url: string }): Email {
   return build(opts.to, `Cancelled: ${opts.subject}, ${opts.when}`, {
     kicker: "Cancelled",

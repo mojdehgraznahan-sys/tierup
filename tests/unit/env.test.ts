@@ -42,4 +42,17 @@ describe("testing switches in production", () => {
   it("refuses RELAX_STAFF_DOMAINS", () => {
     expect(productionEnvProblems({ ...good, RELAX_STAFF_DOMAINS: "true" }).join()).toMatch(/RELAX_STAFF_DOMAINS must be off/);
   });
+
+  it("needs an API key for Claude summaries and refuses the fake one", () => {
+    expect(productionEnvProblems({ ...good, AI_SUMMARIES: "claude" }).join("\n")).toMatch(/ANTHROPIC_API_KEY is missing/);
+    expect(productionEnvProblems({ ...good, AI_SUMMARIES: "claude", ANTHROPIC_API_KEY: "sk-ant-x" })).toEqual([]);
+    expect(productionEnvProblems({ ...good, AI_SUMMARIES: "fake" }).join("\n")).toMatch(/AI_SUMMARIES=fake/);
+  });
+
+  it("checks the transcript settings", () => {
+    expect(productionEnvProblems({ ...good, TRANSCRIPTS: "on" }).join("\n")).toMatch(/TRANSCRIPT_STT=google/);
+    expect(productionEnvProblems({ ...good, TRANSCRIPTS: "on", TRANSCRIPT_STT: "google" })).toEqual([]);
+    expect(productionEnvProblems({ ...good, MEET_PROVIDER: "fake", ALLOW_FAKE_MEET: "true", GOOGLE_EDUCATION_SCHOOLS: "a.org=b@a.org" }).join("\n")).toMatch(/needs MEET_PROVIDER=google/);
+    expect(productionEnvProblems({ ...good, TRANSCRIPT_ARCHIVE: "gs://bucket" }).join("\n")).toMatch(/ARCHIVE_SALT/);
+  });
 });

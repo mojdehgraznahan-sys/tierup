@@ -18,6 +18,8 @@ import { useToast } from "@/components/ui/toast";
 import type { ActionResult } from "@/server/errors";
 import { COURSE_GRADES, STUDENT_GRADES } from "@/lib/validation/onboarding";
 import { WEEKDAYS } from "@/lib/time";
+import { CONSENT_COPY } from "@/lib/consent";
+import { savePrivacyAction } from "@/app/(app)/actions";
 
 type Result = ActionResult<{ toast: string }>;
 
@@ -402,6 +404,39 @@ export function ParentSection(props: { parentEmail: string; status: "pending" | 
       )}
       <ErrorLine error={error} />
       <Button variant="primary" className="self-start" disabled={pending} onClick={() => save(() => updateParentAction({ parentEmail, sendSummaries }))}>
+        Save
+      </Button>
+    </Card>
+  );
+}
+
+/** Transcription and de-identified analytics, each opt-in (same choices as the privacy pop-up). */
+export function PrivacySection(props: { askTranscripts: boolean; transcripts: boolean; analytics: boolean }) {
+  const { pending, error, save } = useSave();
+  const [transcripts, setTranscripts] = useState(props.transcripts);
+  const [analytics, setAnalytics] = useState(props.analytics);
+  return (
+    <Card id="privacy" kicker="Privacy" className="gap-3.5">
+      {props.askTranscripts && (
+        <label className="radio items-start">
+          <input type="checkbox" checked={transcripts} onChange={(e) => setTranscripts(e.target.checked)} />
+          <span className="dot mt-0.5 shrink-0" />
+          {CONSENT_COPY.transcripts.label}
+        </label>
+      )}
+      <label className="radio items-start">
+        <input type="checkbox" checked={analytics} onChange={(e) => setAnalytics(e.target.checked)} />
+        <span className="dot mt-0.5 shrink-0" />
+        {CONSENT_COPY.analytics.label}
+      </label>
+      <p className="muted m-0 text-xs">Turning transcription off stops it for sessions you&apos;ve already booked too.</p>
+      <ErrorLine error={error} />
+      <Button
+        variant="primary"
+        className="self-start"
+        disabled={pending}
+        onClick={() => save(() => savePrivacyAction({ transcripts: props.askTranscripts ? transcripts : undefined, analytics }))}
+      >
         Save
       </Button>
     </Card>

@@ -315,7 +315,7 @@ export async function pauseReportedTutor(staff: Staff, id: string) {
   const provider = await getMeetProvider();
   for (const s of future) {
     if (s.calendarEventId || s.meetSpaceName) {
-      await provider.cancelMeeting({ calendarEventId: s.calendarEventId, spaceName: s.meetSpaceName }).catch((err) => console.error(err));
+      await provider.cancelMeeting({ calendarEventId: s.calendarEventId, spaceName: s.meetSpaceName, organizer: s.meetOrganizer }).catch((err) => console.error(err));
     }
     const when = sessionWhen(s.startsAt, new Map((s.learner.school?.slots ?? []).map((sl) => [sl.startMinute, sl.label])));
     const email = (to: string) =>
@@ -368,6 +368,7 @@ export async function sessionLog(staff: Staff, limit = 100) {
       learner: { select: { id: true, name: true, school: { include: { slots: true } } } },
       subject: true,
       attendance: true,
+      summary: { select: { generatedAt: true } },
     },
     orderBy: { startsAt: "desc" },
     take: limit,
@@ -384,6 +385,7 @@ export async function sessionLog(staff: Staff, limit = 100) {
     location: s.location,
     meetUrl: s.meetUrl,
     status: STATUS_LABEL[s.status],
+    hasSummary: !!s.summary?.generatedAt,
     attendance: s.attendance.map((a) => ({
       who: a.userId === s.tutor.id ? displayName(s.tutor.name) : displayName(s.learner.name),
       text: `${fmt(a.joinedAt)}–${a.leftAt ? fmt(a.leftAt) : "?"}`,

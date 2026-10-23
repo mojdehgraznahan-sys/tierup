@@ -37,6 +37,13 @@ export function productionEnvProblems(env: Env = process.env): string[] {
   } else if (env.ALLOW_FAKE_MEET !== "true") {
     problems.push('MEET_PROVIDER must be "google" in production (or set ALLOW_FAKE_MEET=true for a preview without real Meet links)');
   }
+  // AI session summaries are optional; when on, they need a key, and the fake is for previews only.
+  if (env.AI_SUMMARIES === "claude") need("ANTHROPIC_API_KEY", "AI_SUMMARIES=claude");
+  if (env.AI_SUMMARIES === "fake") problems.push('AI_SUMMARIES=fake writes placeholder summaries; use "claude" or leave it unset in production');
+  // Session transcripts: real speech-to-text, Google schools on the real Meet, archive pseudonyms salted.
+  if (env.TRANSCRIPTS === "on" && env.TRANSCRIPT_STT !== "google") problems.push('TRANSCRIPTS=on needs TRANSCRIPT_STT=google (Google Cloud Speech-to-Text)');
+  if (env.GOOGLE_EDUCATION_SCHOOLS && env.MEET_PROVIDER !== "google") problems.push("GOOGLE_EDUCATION_SCHOOLS needs MEET_PROVIDER=google");
+  if (env.TRANSCRIPT_ARCHIVE && (env.ARCHIVE_SALT ?? "").length < 32) problems.push("TRANSCRIPT_ARCHIVE needs ARCHIVE_SALT (32+ random characters; keep it secret and never change it)");
   return problems;
 }
 

@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import type { Role } from "@prisma/client";
 import { db } from "@/server/db";
+import { micWindow } from "@/server/services/transcripts";
 import { UserError } from "@/server/errors";
 import { hasParentConsent, MESSAGING_BEFORE_CONSENT } from "@/server/policies/rules";
 import { sessionWhen } from "@/server/services/sessions";
@@ -28,7 +29,7 @@ const threadInclude = {
   learner: { select: { id: true, name: true, schoolId: true, school: { include: { slots: true } } } },
   tutor: { select: { id: true, name: true, schoolId: true, tutorStatus: true } },
   subject: true,
-  session: { include: { review: true, cancelledBy: { select: { id: true, name: true } } } },
+  session: { include: { review: true, summary: true, cancelledBy: { select: { id: true, name: true } } } },
 } as const;
 
 /**
@@ -151,6 +152,14 @@ export async function threadView(viewer: Viewer, threadId: string) {
           meetUrl: s.meetUrl,
           started: s.startsAt.getTime() <= Date.now(),
           tutorNotes: role === "learner" ? null : s.tutorNotes,
+          tutorWrappedUp: !!s.tutorWrappedUpAt,
+          learnerShowedUp: s.learnerShowedUp,
+          tutorFeedback: role === "learner" ? null : s.tutorFeedback,
+          summary: s.summary?.generatedAt ? { topics: s.summary.topics, nextSteps: s.summary.nextSteps } : null,
+          transcribe: s.transcribe,
+          transcriptSource: s.transcriptSource as "google_meet" | "mic" | null,
+          transcriptReady: !!s.transcriptReadyAt,
+          micWindow: micWindow(s),
           cancelledBy: s.cancelledBy ? displayName(s.cancelledBy.name) : null,
           cancelledByMe: s.cancelledById === viewer.id,
           cancelReason: s.cancelReason,

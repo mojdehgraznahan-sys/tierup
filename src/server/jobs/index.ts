@@ -11,6 +11,9 @@ import {
 import { getMeetProvider } from "@/server/integrations/meet";
 import { sendApprovalReminders } from "@/server/services/approval-notifications";
 import { sessionWhen } from "@/server/services/sessions";
+import { summarizeSessions } from "@/server/services/summaries";
+import { archiveOldTranscripts } from "@/server/services/transcript-archive";
+import { finishTranscripts } from "@/server/services/transcripts";
 import { displayName } from "@/lib/names";
 
 // Background jobs (BACKEND.md › Notifications, Request expiry, Meet). Each is idempotent: it marks
@@ -76,7 +79,7 @@ export async function endMeetings(now = new Date()) {
   let ended = 0;
   for (const s of candidates.filter((c) => c.startsAt.getTime() + c.durationMin * MIN <= now.getTime())) {
     try {
-      await provider.endMeeting({ spaceName: s.meetSpaceName });
+      await provider.endMeeting({ spaceName: s.meetSpaceName, organizer: s.meetOrganizer });
       await db.tutoringSession.update({ where: { id: s.id }, data: { meetEndedAt: now } });
       ended++;
     } catch (err) {
@@ -192,7 +195,10 @@ export const JOBS = {
   "hours-digest": hoursDigest,
   "cleanup-rate-limits": cleanupRateLimits,
   "approval-reminders": sendApprovalReminders,
+  transcripts: () => finishTranscripts(),
+  "session-summaries": () => summarizeSessions(),
+  "archive-transcripts": () => archiveOldTranscripts(),
 } as const;
 
 export type JobName = keyof typeof JOBS;
-export const FREQUENT: JobName[] = ["expire-requests", "reminders", "end-meetings", "report-alerts", "unread-messages", "cleanup-rate-limits", "approval-reminders"];
+export const FREQUENT: JobName[] = ["expire-requests", "reminders", "end-meetings", "report-alerts", "unread-messages", "cleanup-rate-limits", "approval-reminders", "transcripts", "session-summaries", "archive-transcripts"];

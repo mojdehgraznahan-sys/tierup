@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { Meeting, MeetingRequest, MeetProvider } from "./types";
+import type { Meeting, MeetingRef, MeetingRequest, MeetProvider, MeetTranscript } from "./types";
 
 const LETTERS = "abcdefghijkmnopqrstuvwxyz";
 
@@ -19,18 +19,31 @@ export class FakeMeetProvider implements MeetProvider {
   readonly created: MeetingRequest[] = [];
   readonly cancelled: string[] = [];
   readonly ended: string[] = [];
+  /** Tests set what fetchTranscript returns for a space. */
+  readonly transcripts = new Map<string, MeetTranscript>();
 
   async createMeeting(req: MeetingRequest): Promise<Meeting> {
     this.created.push(req);
     const code = fakeMeetCode(req.sessionId);
+    if (req.autoTranscribe) this.autoTranscribe.set(`spaces/${code}`, true);
     return { meetUrl: `https://meet.google.com/${code}`, calendarEventId: `fake-${req.sessionId}`, spaceName: `spaces/${code}` };
   }
 
-  async cancelMeeting(meeting: { calendarEventId: string | null }): Promise<void> {
+  async cancelMeeting(meeting: MeetingRef): Promise<void> {
     if (meeting.calendarEventId) this.cancelled.push(meeting.calendarEventId);
   }
 
-  async endMeeting(meeting: { spaceName: string | null }): Promise<void> {
+  async endMeeting(meeting: MeetingRef): Promise<void> {
     if (meeting.spaceName) this.ended.push(meeting.spaceName);
+  }
+
+  readonly autoTranscribe = new Map<string, boolean>();
+
+  async setAutoTranscribe(meeting: MeetingRef, on: boolean): Promise<void> {
+    if (meeting.spaceName) this.autoTranscribe.set(meeting.spaceName, on);
+  }
+
+  async fetchTranscript(meeting: MeetingRef): Promise<MeetTranscript> {
+    return (meeting.spaceName && this.transcripts.get(meeting.spaceName)) || { state: "none" };
   }
 }

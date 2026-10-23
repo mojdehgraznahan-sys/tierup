@@ -218,6 +218,7 @@ model User {
   accounts        Account[]
   authSessions    Session[]
   availability    AvailabilitySlot[]
+  consentRecords  ConsentRecord[]
   consent         ParentConsent?
   tutorStatus     TutorStatus?
   learnerSubjects LearnerSubject[]
@@ -454,6 +455,22 @@ model TutoringSession {
   status             SessionStatus @default(confirmed)
   learnerConfirmedAt DateTime?
   tutorNotes         String?
+  /// Tutor's wrap-up: did the learner show up? Null until the tutor answers.
+  learnerShowedUp    Boolean?
+  /// Tutor's private feedback about the session, for school staff only.
+  tutorFeedback      String?
+  tutorWrappedUpAt   DateTime?
+  /// Decided at booking: transcription is on (both students consented, same school) and
+  /// stays on unless either student turns it off before the start.
+  transcribe         Boolean       @default(false)
+  /// "google_meet" (the school's Google Workspace transcribes) or "mic" (TierUp records each
+  /// student's mic and runs speech-to-text). Null when not transcribed.
+  transcriptSource   String?
+  /// Google path: the school's Workspace user that owns the meeting.
+  meetOrganizer      String?
+  transcriptReadyAt  DateTime?
+  /// Why there's no transcript: "empty", "not_found", "consent_withdrawn".
+  transcriptFailure  String?
   cancelledAt        DateTime?
   cancelledById      String?
   cancelReason       String?
@@ -464,14 +481,16 @@ model TutoringSession {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  thread      Thread           @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  cancelledBy User?            @relation("CancelledSessions", fields: [cancelledById], references: [id], onDelete: SetNull)
-  learner     User             @relation("LearnerSessions", fields: [learnerId], references: [id], onDelete: Cascade)
-  tutor       User             @relation("TutorSessions", fields: [tutorId], references: [id], onDelete: Cascade)
-  subject     Subject          @relation(fields: [subjectId], references: [id])
-  request     HelpRequest?     @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  thread      Thread              @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  cancelledBy User?               @relation("CancelledSessions", fields: [cancelledById], references: [id], onDelete: SetNull)
+  learner     User                @relation("LearnerSessions", fields: [learnerId], references: [id], onDelete: Cascade)
+  tutor       User                @relation("TutorSessions", fields: [tutorId], references: [id], onDelete: Cascade)
+  subject     Subject             @relation(fields: [subjectId], references: [id])
+  request     HelpRequest?        @relation(fields: [requestId], references: [id], onDelete: SetNull)
   attendance  MeetAttendance[]
   review      Review?
+  summary     SessionSummary?
+  transcript  TranscriptSegment[]
   hourLog     HourLog?
   reports     Report[]
 
@@ -505,6 +524,57 @@ model Review {
 
   session TutoringSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   learner User            @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+}
+
+/// AI summary of a session, written from the tutor's notes and the chat. Learner, tutor and
+/// school staff see it; tutorFeedback (staff-only) is never part of the input. The row is created
+/// first to claim the session, so each session is summarized (and billed) at most once.
+model SessionSummary {
+  id          String    @id @default(cuid())
+  sessionId   String    @unique
+  topics      String[]  @default([])
+  nextSteps   String[]  @default([])
+  /// The Claude model that wrote it (after any server-side fallback).
+  model       String?
+  generatedAt DateTime?
+  /// Why there's no summary: "not_enough_info", "refusal", "error".
+  failure     String?
+  /// Set once the learner and tutor have been emailed.
+  emailedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  session TutoringSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+/// One line of a session transcript. Only the AI summarizer and (for reports) staff read these;
+/// students and teachers only ever see the summary. Audio is never stored.
+model TranscriptSegment {
+  id        String   @id @default(cuid())
+  sessionId String
+  /// "Tutor", "Learner" or "Session" (one shared device, in person).
+  speaker   String
+  at        DateTime
+  text      String
+  createdAt DateTime @default(now())
+
+  session TutoringSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, at])
+}
+
+/// Append-only record of a student's privacy choices, with the wording version they saw.
+model ConsentRecord {
+  id        String   @id @default(cuid())
+  userId    String
+  /// "transcripts" or "analytics".
+  kind      String
+  granted   Boolean
+  version   Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, createdAt])
 }
 
 model HourLog {

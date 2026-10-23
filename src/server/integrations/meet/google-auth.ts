@@ -18,6 +18,12 @@ export const MEET_SCOPES = [
   "https://www.googleapis.com/auth/meetings.space.created",
 ];
 
+/**
+ * Google Workspace for Education schools (GOOGLE_EDUCATION_SCHOOLS) also let TierUp read the
+ * meeting's transcript. Their admin grants these scopes to TierUp's client ID.
+ */
+export const EDUCATION_SCOPES = [...MEET_SCOPES, "https://www.googleapis.com/auth/meetings.space.readonly"];
+
 type OAuthClient = InstanceType<typeof googleAuth.OAuth2>;
 
 /** Claims for a domain-wide delegation assertion (RFC 7523 JWT bearer grant). */
@@ -34,8 +40,11 @@ export function delegationClaims(serviceAccount: string, subject: string, scopes
 }
 
 /** Returns a function that yields an authorized client, refreshing the token as needed. */
-export function organizerAuth(env: NodeJS.ProcessEnv = process.env): () => Promise<OAuthClient> {
-  const organizer = env.GOOGLE_MEET_ORGANIZER;
+export function organizerAuth(
+  env: NodeJS.ProcessEnv = process.env,
+  organizer: string | undefined = env.GOOGLE_MEET_ORGANIZER,
+  scopes: string[] = MEET_SCOPES,
+): () => Promise<OAuthClient> {
   if (!organizer) throw new Error("MEET_PROVIDER=google needs GOOGLE_MEET_ORGANIZER");
 
   if (env.GOOGLE_SERVICE_ACCOUNT_KEY) {
@@ -43,7 +52,7 @@ export function organizerAuth(env: NodeJS.ProcessEnv = process.env): () => Promi
       client_email: string;
       private_key: string;
     };
-    const jwt = new googleAuth.JWT({ email: json.client_email, key: json.private_key, scopes: MEET_SCOPES, subject: organizer });
+    const jwt = new googleAuth.JWT({ email: json.client_email, key: json.private_key, scopes, subject: organizer });
     return async () => jwt;
   }
 
@@ -64,7 +73,7 @@ export function organizerAuth(env: NodeJS.ProcessEnv = process.env): () => Promi
     const signed = await signer.request<{ signedJwt: string }>({
       url: `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${encodeURIComponent(serviceAccount)}:signJwt`,
       method: "POST",
-      data: { payload: JSON.stringify(delegationClaims(serviceAccount, organizer, MEET_SCOPES)) },
+      data: { payload: JSON.stringify(delegationClaims(serviceAccount, organizer, scopes)) },
     });
 
     // Exchange it for an access token that acts as the organizer.

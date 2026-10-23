@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ConsentBanner } from "@/components/app/consent-banner";
-import { parentConsentEnabled } from "@/server/policies/rules";
+import { crossSchoolEnabled, parentConsentEnabled } from "@/server/policies/rules";
 import { OpenRequests } from "@/components/discovery/open-requests";
 import { ResponseCard } from "@/components/discovery/response-card";
 import { TutorMiniCard } from "@/components/discovery/tutor-card";
@@ -45,7 +45,10 @@ export default async function StudentHomePage() {
         </div>
       )}
       {!user.schoolId && (
-        <p className="muted mt-0 mb-6 text-sm">Your school is on the waitlist. You can still meet tutors from other schools online.</p>
+        <p className="muted mt-0 mb-6 text-sm">
+          Your school is on the waitlist.{" "}
+          {crossSchoolEnabled() ? "You can still meet tutors from other schools online." : "You'll be able to find tutors once it joins TierUp."}
+        </p>
       )}
 
       {toReview.length > 0 && (
@@ -55,7 +58,7 @@ export default async function StudentHomePage() {
               <span className="text-sm">
                 <b>{s.subjectName}</b> with {s.tutorName} · {s.when}
               </span>
-              <ButtonLink href={`/sessions/${s.threadId}?review=1`} className="text-[13px]">
+              <ButtonLink href={`/sessions/${s.threadId}?wrapup=1`} className="text-[13px]">
                 Review session
               </ButtonLink>
             </div>

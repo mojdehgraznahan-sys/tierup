@@ -10,7 +10,9 @@ vi.mock("@/server/email/send", () => ({
 import { setMeetProvider } from "@/server/integrations/meet";
 import { FakeMeetProvider } from "@/server/integrations/meet/fake";
 import { createBooking } from "@/server/services/booking";
-import { cancelSession, completeAndReview, saveTutorNotes } from "@/server/services/lifecycle";
+import { logHours } from "@/server/services/hours";
+import { cancelSession, completeAndReview, saveTutorNotes, tutorWrapUp } from "@/server/services/lifecycle";
+import { awaitingReview, awaitingTutorWrapUp } from "@/server/services/sessions";
 import { db, makeLearner, makeSchool, makeSubjects, makeTutor, resetDb } from "./helpers";
 
 // Monday Oct 19 2026, 10:00 Eastern; the session is Tue Oct 20, 3:30 pm.
@@ -138,5 +140,64 @@ describe("tutor notes", () => {
     await expect(saveTutorNotes(w.learner.id, w.sessionId, "hi", DURING)).rejects.toThrow(/your own sessions/);
     expect((await saveTutorNotes(w.tutor.id, w.sessionId, "Worked on factoring", DURING)).toast).toMatch(/Waiting for the learner/);
     expect((await db.tutoringSession.findUniqueOrThrow({ where: { id: w.sessionId } })).tutorNotes).toBe("Worked on factoring");
+  });
+});
+
+describe("tutor wrap-up", () => {
+  it("records that the learner showed up with private feedback, once, after the start", async () => {
+    const w = await bookedWorld();
+    await expect(tutorWrapUp(w.tutor.id, w.sessionId, { learnerShowedUp: true }, NOW)).rejects.toThrow(/once the session has started/);
+    await expect(tutorWrapUp(w.learner.id, w.sessionId, { learnerShowedUp: true }, AFTER)).rejects.toThrow(/your own sessions/);
+    expect(await awaitingTutorWrapUp(w.tutor.id, AFTER)).toHaveLength(1);
+
+    const { toast } = await tutorWrapUp(w.tutor.id, w.sessionId, { learnerShowedUp: true, feedback: "Came prepared" }, AFTER);
+    expect(toast).toMatch(/saved/);
+    const s = await db.tutoringSession.findUniqueOrThrow({ where: { id: w.sessionId } });
+    expect(s).toMatchObject({ status: "confirmed", learnerShowedUp: true, tutorFeedback: "Came prepared", tutorWrappedUpAt: AFTER });
+    expect(await db.report.count()).toBe(0);
+    expect(await awaitingTutorWrapUp(w.tutor.id, AFTER)).toHaveLength(0);
+    await expect(tutorWrapUp(w.tutor.id, w.sessionId, { learnerShowedUp: false }, AFTER)).rejects.toThrow(/already wrapped up/);
+
+    // The learner can still review afterwards.
+    await completeAndReview(w.learner.id, w.sessionId, { happened: "yes", stars: 5 }, AFTER);
+    expect((await db.tutoringSession.findUniqueOrThrow({ where: { id: w.sessionId } })).status).toBe("completed");
+  });
+
+  it("ends a session the learner skipped: no hours, staff told, no review prompt", async () => {
+    const w = await bookedWorld();
+    await logHours(w.tutor.id, w.sessionId, AFTER);
+    const { toast } = await tutorWrapUp(w.tutor.id, w.sessionId, { learnerShowedUp: false, feedback: "Waited 20 min" }, AFTER);
+    expect(toast).toMatch(/School staff have been told/);
+
+    const s = await db.tutoringSession.findUniqueOrThrow({ where: { id: w.sessionId }, include: { hourLog: true } });
+    expect(s.status).toBe("no_show");
+    expect(s.learnerShowedUp).toBe(false);
+    expect(s.hourLog).toBeNull();
+    const report = await db.report.findFirstOrThrow();
+    expect(report).toMatchObject({ automatic: true, reporterId: w.tutor.id, againstUserId: w.learner.id, reason: "Tutor says the learner didn't show up: Waited 20 min" });
+    expect(await awaitingReview(w.learner.id, AFTER)).toHaveLength(0);
+    await expect(completeAndReview(w.learner.id, w.sessionId, { happened: "yes", stars: 5 }, AFTER)).rejects.toThrow(/already been wrapped up/);
+  });
+
+  it("flags a disagreement when the learner already confirmed the session", async () => {
+    const w = await bookedWorld();
+    await completeAndReview(w.learner.id, w.sessionId, { happened: "yes", stars: 4 }, AFTER);
+    await tutorWrapUp(w.tutor.id, w.sessionId, { learnerShowedUp: false }, AFTER);
+
+    const s = await db.tutoringSession.findUniqueOrThrow({ where: { id: w.sessionId } });
+    expect(s.status).toBe("completed");
+    expect(s.learnerConfirmedAt).toEqual(AFTER);
+    expect((await db.report.findFirstOrThrow()).reason).toBe("Tutor says the learner didn't show up, but Lea L. confirmed the session happened");
+  });
+
+  it("can't wrap up cancelled sessions or ones the learner reported as a tutor no-show", async () => {
+    const cancelled = await bookedWorld();
+    await cancelSession(cancelled.learner.id, cancelled.sessionId, {}, NOW);
+    await expect(tutorWrapUp(cancelled.tutor.id, cancelled.sessionId, { learnerShowedUp: true }, AFTER)).rejects.toThrow(/can't be wrapped up/);
+
+    await resetDb();
+    const skipped = await bookedWorld();
+    await completeAndReview(skipped.learner.id, skipped.sessionId, { happened: "no_show" }, AFTER);
+    await expect(tutorWrapUp(skipped.tutor.id, skipped.sessionId, { learnerShowedUp: true }, AFTER)).rejects.toThrow(/can't be wrapped up/);
   });
 });

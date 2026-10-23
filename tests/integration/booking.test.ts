@@ -135,7 +135,7 @@ describe("createBooking", () => {
       data: { learnerId: w.learner.id, subjectId: w.algebra.id, description: "Factoring", expiresAt: new Date(NOW.getTime() + 86400000) },
     });
 
-    const failing: MeetProvider = { ...fake, name: "fake", createMeeting: async () => { throw new Error("Google is down"); }, cancelMeeting: async () => {}, endMeeting: async () => {} };
+    const failing: MeetProvider = { ...fake, name: "fake", createMeeting: async () => { throw new Error("Google is down"); }, cancelMeeting: async () => {}, endMeeting: async () => {}, setAutoTranscribe: async () => {}, fetchTranscript: async () => ({ state: "none" }) };
     setMeetProvider(failing);
     await expect(book(w, { requestId: request.id })).rejects.toThrow(/couldn't create the Google Meet/);
     expect(await db.tutoringSession.count()).toBe(0);

@@ -115,7 +115,66 @@ export async function completeAndReview(learnerId: string, sessionId: string, ra
   };
 }
 
-export const cancelSchema = z.object({ reason: z.string().trim().max(300).optional() });
+export const tutorWrapUpSchema = z.object({
+  learnerShowedUp: z.boolean(),
+  feedback: z.string().trim().max(1000).optional(),
+});
+
+/**
+ * Tutor's side of the wrap-up (once the session has started): did the learner show up, plus
+ * optional feedback that only school staff see. A learner no-show ends the session without
+ * service hours and tells staff; if the learner already confirmed it happened, the session is
+ * left as is and staff are told about the disagreement.
+ */
+export async function tutorWrapUp(tutorId: string, sessionId: string, raw: z.input<typeof tutorWrapUpSchema>, now = new Date()) {
+  const { learnerShowedUp, feedback } = tutorWrapUpSchema.parse(raw);
+  const s = await loadSession(sessionId);
+  if (!s || s.tutorId !== tutorId) throw new UserError("You can only wrap up your own sessions.");
+  if (s.startsAt > now) throw new UserError("You can wrap up once the session has started.");
+  if (s.tutorWrappedUpAt) throw new UserError("You've already wrapped up this session.");
+  if (s.status !== "confirmed" && s.status !== "completed") throw new UserError("This session can't be wrapped up.");
+
+  const learnerName = displayName(s.learner.name);
+  // A no-show the learner hasn't contradicted ends the session; otherwise the status stays.
+  const endsSession = !learnerShowedUp && s.status === "confirmed";
+
+  await db.$transaction(async (tx) => {
+    // Conditional on the status we checked, so a learner review landing at the same time can't be overwritten.
+    const { count } = await tx.tutoringSession.updateMany({
+      where: { id: s.id, status: s.status, tutorWrappedUpAt: null },
+      data: {
+        learnerShowedUp,
+        tutorFeedback: feedback || null,
+        tutorWrappedUpAt: now,
+        ...(endsSession ? { status: "no_show" as const } : {}),
+      },
+    });
+    if (count === 0) throw new UserError("This session changed while you were wrapping up. Reload and try again.");
+    if (learnerShowedUp) return;
+
+    // No hours for a session that didn't happen; approved or rejected logs are staff's call.
+    await tx.hourLog.deleteMany({ where: { sessionId: s.id, status: "logged" } });
+    await tx.report.create({
+      data: {
+        automatic: true,
+        reporterId: tutorId,
+        againstUserId: s.learnerId,
+        sessionId: s.id,
+        threadId: s.threadId,
+        reason:
+          (endsSession
+            ? "Tutor says the learner didn't show up"
+            : `Tutor says the learner didn't show up, but ${learnerName} confirmed the session happened`) + (feedback ? `: ${feedback}` : ""),
+      },
+    });
+  });
+
+  return {
+    toast: learnerShowedUp ? "Thanks! Your wrap-up is saved." : "Thanks for letting us know. School staff have been told.",
+  };
+}
+
+export const cancelSchema =z.object({ reason: z.string().trim().max(300).optional() });
 
 /**
  * Either participant cancels a confirmed session before it starts. The calendar event (and its
@@ -136,7 +195,7 @@ export async function cancelSession(userId: string, sessionId: string, raw: z.in
 
   if (s.calendarEventId || s.meetSpaceName) {
     try {
-      await (await getMeetProvider()).cancelMeeting({ calendarEventId: s.calendarEventId, spaceName: s.meetSpaceName });
+      await (await getMeetProvider()).cancelMeeting({ calendarEventId: s.calendarEventId, spaceName: s.meetSpaceName, organizer: s.meetOrganizer });
     } catch (err) {
       // The session is cancelled either way; the Join button is already gone. Log for follow-up.
       console.error(`Couldn't cancel the calendar event for session ${s.id}`, err);

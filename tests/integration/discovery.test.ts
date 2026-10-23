@@ -7,6 +7,7 @@ vi.mock("@/server/email/send", () => ({
   sendEmailSafely: async (e: Email) => void sent.push(e),
 }));
 
+import { createBooking } from "@/server/services/booking";
 import { browseTutors, matchTutors, tutorProfile, tutorsForMyClasses } from "@/server/services/discovery";
 import { createRequest, myOpenRequests, respondToRequest } from "@/server/services/requests";
 import { getOrCreatePreBookingThread } from "@/server/services/threads";
@@ -60,6 +61,28 @@ describe("discoverability", () => {
     expect(inPersonOnly.map((t) => t.id)).toEqual([local.id]);
     const mine = await browseTutors(w.viewer, { ...ALL, sameSchoolOnly: true });
     expect(mine.map((t) => t.id)).toEqual([local.id]);
+  });
+
+  it("hides other-school tutors everywhere when cross-school sessions are off", async () => {
+    vi.stubEnv("CROSS_SCHOOL_SESSIONS", "false");
+    try {
+      const w = await world();
+      const remote = await makeTutor({ email: "r@other.test", schoolId: w.other.id, subjects: { [w.algebra.id]: "approved" }, avail: [[1, 930]] });
+      const local = await makeTutor({ email: "l@home.test", schoolId: w.home.id, subjects: { [w.algebra.id]: "approved" }, avail: [[1, 930]] });
+
+      expect((await browseTutors(w.viewer, ALL)).map((t) => t.id)).toEqual([local.id]);
+      expect((await matchTutors(w.viewer, w.algebra.id)).map((t) => t.id)).toEqual([local.id]);
+      expect(await tutorProfile(w.viewer, remote.id)).toBeNull();
+
+      sent.length = 0;
+      await createRequest(w.learner.id, { subjectId: w.algebra.id, description: "Factoring help please" });
+      expect(sent.map((e) => e.to)).toEqual(["l@home.test"]);
+      await expect(
+        createBooking(w.learner.id, { tutorId: remote.id, subjectId: w.algebra.id, startsAt: "2026-10-20T19:30:00.000Z", format: "online" }, new Date("2026-10-19T14:00:00Z")),
+      ).rejects.toThrow(/isn't available for booking/);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("returns null profiles for undiscoverable tutors and computes the next open slot", async () => {

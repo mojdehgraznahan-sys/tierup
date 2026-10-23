@@ -10,6 +10,7 @@ import { discoverableTutor, discoverableTutorSubject, effectiveFormats } from "@
 import { hasParentConsent, parentEmailFor } from "@/server/policies/rules";
 import { sessionWhen } from "@/server/services/sessions";
 import { cellState, SESSION_MINUTES, WEEKS_AHEAD, weekParam, type CellState } from "@/lib/booking";
+import { planTranscript } from "@/server/services/transcripts";
 import { displayName } from "@/lib/names";
 import { minuteOfDay, slotInstant, weekStart, WEEKDAYS, zonedDate } from "@/lib/time";
 
@@ -229,6 +230,21 @@ export async function createBooking(learnerId: string, raw: z.input<typeof booki
     });
   });
 
+  // Transcript for the AI summary (both opted in, same school): Meet at Google Education schools, else mic capture.
+  const plan = await planTranscript({
+    learnerId,
+    tutorId: input.tutorId,
+    format: session.format,
+    learnerSchoolId: session.learner.schoolId,
+    tutorSchoolId: session.tutor.schoolId,
+  });
+  if (plan.transcribe) {
+    await db.tutoringSession.update({
+      where: { id: session.id },
+      data: { transcribe: true, transcriptSource: plan.source, meetOrganizer: plan.organizer },
+    });
+  }
+
   // One-time Meet for online sessions. On failure, undo the booking so nobody holds a session without a link.
   let meetUrl: string | null = null;
   if (session.format === "online") {
@@ -244,6 +260,8 @@ export async function createBooking(learnerId: string, raw: z.input<typeof booki
           { email: session.learner.email, name: displayName(session.learner.name) },
           { email: session.tutor.email, name: displayName(session.tutor.name) },
         ],
+        organizer: plan.organizer,
+        autoTranscribe: plan.source === "google_meet",
       });
       meetUrl = meeting.meetUrl;
       await db.tutoringSession.update({

@@ -51,7 +51,7 @@ export function SubjectSelect({ subjects, value, allLabel, label }: { subjects: 
 
 type Filters = { inPerson: boolean; online: boolean; sameSchoolOnly: boolean };
 
-export function BrowseFilters({ subjects, subjectId, filters, schoolName }: { subjects: Option[]; subjectId?: string; filters: Filters; schoolName: string | null }) {
+export function BrowseFilters({ subjects, subjectId, filters, schoolName, crossSchool }: { subjects: Option[]; subjectId?: string; filters: Filters; schoolName: string | null; crossSchool: boolean }) {
   const set = useParamSetter();
   const [local, setLocal] = useState(filters);
   const box = (key: "in" | "on" | "mine", field: keyof Filters, checked: boolean, def: boolean) => {
@@ -75,7 +75,7 @@ export function BrowseFilters({ subjects, subjectId, filters, schoolName }: { su
         <span className="dot" />
         Online (Google Meet)
       </label>
-      {schoolName && (
+      {schoolName && crossSchool && (
         <>
           <span className="kicker">School</span>
           <label className="radio">
@@ -85,7 +85,9 @@ export function BrowseFilters({ subjects, subjectId, filters, schoolName }: { su
           </label>
         </>
       )}
-      <p className="muted m-0 text-xs">You can only meet tutors from other schools online.</p>
+      <p className="muted m-0 text-xs">
+        {crossSchool ? "You can only meet tutors from other schools online." : `You're matched with tutors from ${schoolName ?? "your school"}.`}
+      </p>
     </div>
   );
 }

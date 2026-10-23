@@ -300,6 +300,7 @@ async function SessionLog({ staff }: { staff: StaffUser }) {
                 <th>Format</th>
                 <th>Meet link</th>
                 <th>Status</th>
+                <th>Summary</th>
               </tr>
             </thead>
             <tbody>
@@ -328,6 +329,15 @@ async function SessionLog({ staff }: { staff: StaffUser }) {
                   </td>
                   <td>
                     <Tag tone="neutral">{s.status}</Tag>
+                  </td>
+                  <td className="whitespace-nowrap">
+                    {s.hasSummary ? (
+                      <Link href={`/sessions/${s.threadId}`} className="text-[13px]">
+                        AI summary →
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                 </tr>
               ))}

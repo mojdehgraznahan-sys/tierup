@@ -2,7 +2,7 @@ import "server-only";
 import { FakeMeetProvider } from "./fake";
 import type { MeetProvider } from "./types";
 
-export type { Meeting, MeetingRequest, MeetProvider } from "./types";
+export type { Meeting, MeetingRef, MeetingRequest, MeetProvider, MeetTranscript, MeetTranscriptLine } from "./types";
 
 let provider: MeetProvider | null = null;
 

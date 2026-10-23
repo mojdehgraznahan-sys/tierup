@@ -55,6 +55,33 @@ export async function awaitingReview(learnerId: string, now = new Date()) {
     }));
 }
 
+/** Days a finished session keeps asking the tutor to wrap it up. */
+const TUTOR_WRAP_UP_DAYS = 14;
+
+/** Tutor's recent sessions that have ended without the tutor's wrap-up ("How did it go?"). */
+export async function awaitingTutorWrapUp(tutorId: string, now = new Date()) {
+  const sessions = await db.tutoringSession.findMany({
+    where: {
+      tutorId,
+      status: { in: ["confirmed", "completed"] },
+      tutorWrappedUpAt: null,
+      startsAt: { lt: now, gte: new Date(now.getTime() - TUTOR_WRAP_UP_DAYS * 86400000) },
+    },
+    include: { learner: { select: { name: true, school: { include: { slots: true } } } }, subject: true },
+    orderBy: { startsAt: "desc" },
+    take: 5,
+  });
+  return sessions
+    .filter((s) => s.startsAt.getTime() + s.durationMin * 60000 <= now.getTime())
+    .map((s) => ({
+      id: s.id,
+      threadId: s.threadId,
+      subjectName: s.subject.name,
+      learnerName: displayName(s.learner.name),
+      when: sessionWhen(s.startsAt, new Map((s.learner.school?.slots ?? []).map((sl) => [sl.startMinute, sl.label]))),
+    }));
+}
+
 /** Tutor's confirmed sessions that haven't ended, soonest first. */
 export async function upcomingForTutor(tutorId: string, now = new Date()) {
   const sessions = await db.tutoringSession.findMany({

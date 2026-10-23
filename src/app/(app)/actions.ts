@@ -7,6 +7,9 @@ import { toActionResult, UserError } from "@/server/errors";
 import { parentConsentEnabled } from "@/server/policies/rules";
 import { requireOnboarded } from "@/server/policies/session";
 import { resendConsent } from "@/server/services/consent";
+import { recordConsents } from "@/server/services/privacy-consent";
+import { stopTranscribingUpcoming } from "@/server/services/transcripts";
+import { revalidatePath } from "next/cache";
 import { MODE_COOKIE } from "@/components/app/mode";
 
 export async function signOutAction() {
@@ -27,4 +30,13 @@ export async function resendConsentAction() {
     await resendConsent(user.id);
     return { toast: "Consent link sent to your parent again" };
   });
+}
+
+/** The privacy pop-up and Settings: transcription and de-identified analytics, each opt-in. */
+export async function savePrivacyAction(input: { transcripts?: boolean; analytics: boolean }) {
+  const user = await requireOnboarded(["learner", "tutor"]);
+  const result = await toActionResult(() => recordConsents(user.id, input));
+  if (result.ok && input.transcripts === false) await stopTranscribingUpcoming(user.id);
+  if (result.ok) revalidatePath("/", "layout");
+  return result;
 }

@@ -1,8 +1,11 @@
 import { cookies } from "next/headers";
 import { AppHeader } from "@/components/app/app-header";
+import { PrivacyPrompt } from "@/components/app/privacy-prompt";
 import { MODE_COOKIE, resolveMode } from "@/components/app/mode";
 import { homePathFor, requireOnboarded } from "@/server/policies/session";
 import { unreadCount } from "@/server/services/messaging";
+import { currentConsents, needsConsentPrompt } from "@/server/services/privacy-consent";
+import { transcriptsEnabled } from "@/server/policies/rules";
 import { displayName } from "@/lib/names";
 
 /** Logged-in shell. Every page under (app) requires a finished onboarding. */
@@ -11,6 +14,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const mode = resolveMode(user.roles, (await cookies()).get(MODE_COOKIE)?.value);
   const isStaff = user.roles.includes("staff");
   const unread = isStaff ? 0 : await unreadCount(user.id);
+  const askPrivacy = await needsConsentPrompt(user);
+  const consents = askPrivacy ? await currentConsents(user.id) : null;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -29,6 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <main id="main" tabIndex={-1} className={`mx-auto w-full max-w-[1120px] flex-1 px-4 outline-none sm:px-6 sm:pb-16 ${isStaff ? "pb-16" : "pb-24"}`}>
         {children}
       </main>
+      {consents && <PrivacyPrompt askTranscripts={transcriptsEnabled()} initial={{ transcripts: consents.transcripts, analytics: consents.analytics }} />}
     </div>
   );
 }

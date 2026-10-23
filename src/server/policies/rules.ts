@@ -25,6 +25,42 @@ export function parentConsentEnabled(): boolean {
   return process.env.PARENT_CONSENT === "true";
 }
 
+/**
+ * Cross-school tutoring (online only) is off for now: learners only see and book tutors at their
+ * own school. CROSS_SCHOOL_SESSIONS=true lets them meet tutors from other schools online.
+ */
+export function crossSchoolEnabled(): boolean {
+  return process.env.CROSS_SCHOOL_SESSIONS === "true";
+}
+
+/**
+ * Session transcripts for AI summaries: TRANSCRIPTS=on. Sessions are only transcribed when both
+ * students opted in and they're at the same school.
+ */
+export function transcriptsEnabled(): boolean {
+  return process.env.TRANSCRIPTS === "on";
+}
+
+/**
+ * Schools with Google Workspace for Education (Education Plus or the Teaching and Learning
+ * Upgrade) host their online sessions in their own Workspace, where Meet writes the transcript.
+ * GOOGLE_EDUCATION_SCHOOLS="lincoln-hs.org=tierup@lincoln-hs.org,..." maps a school's staff email
+ * domain to the Workspace user that owns the meetings. Other schools use TierUp's mic capture.
+ */
+export function googleEducationOrganizer(staffEmailDomains: string[]): string | null {
+  const map = new Map(
+    (process.env.GOOGLE_EDUCATION_SCHOOLS ?? "")
+      .split(",")
+      .map((pair) => pair.split("=").map((x) => x.trim().toLowerCase()))
+      .filter((p): p is [string, string] => p.length === 2 && !!p[0] && !!p[1]),
+  );
+  for (const domain of staffEmailDomains) {
+    const organizer = map.get(domain.toLowerCase());
+    if (organizer) return organizer;
+  }
+  return null;
+}
+
 /** Students (learners and tutors) need an approved parent consent to book, accept or tutor (when enabled). */
 export function hasParentConsent(user: { roles: Role[]; consent: { status: ConsentStatus } | null }): boolean {
   if (!parentConsentEnabled()) return true;

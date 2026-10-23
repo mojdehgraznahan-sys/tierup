@@ -6,12 +6,12 @@ import { CompletedSessions } from "@/components/dashboard/completed-sessions";
 import { RequestInbox } from "@/components/dashboard/request-inbox";
 import { ActionButton } from "@/components/staff/action-button";
 import { resendApprovalAction } from "./actions";
-import { Card, Tag } from "@/components/ui/primitives";
+import { ButtonLink, Card, Tag } from "@/components/ui/primitives";
 import { db } from "@/server/db";
 import { requireOnboarded } from "@/server/policies/session";
 import { tutorHours } from "@/server/services/hours";
 import { tutorInbox } from "@/server/services/requests";
-import { tutorWeekCount, upcomingForTutor } from "@/server/services/sessions";
+import { awaitingTutorWrapUp, tutorWeekCount, upcomingForTutor } from "@/server/services/sessions";
 import { joinWindow, sessionFormatLabel, timeAgo } from "@/lib/format";
 import { firstName } from "@/lib/names";
 
@@ -38,7 +38,7 @@ function expiresIn(date: Date) {
 
 export default async function TutorDashboardPage() {
   const user = await requireOnboarded(["tutor"]);
-  const [hours, upcoming, inbox, weekCount, subjects] = await Promise.all([
+  const [hours, upcoming, inbox, weekCount, subjects, toWrapUp] = await Promise.all([
     tutorHours(user.id),
     upcomingForTutor(user.id),
     tutorInbox(user.id),
@@ -48,6 +48,7 @@ export default async function TutorDashboardPage() {
       include: { subject: true, endorser: { select: { name: true, email: true } } },
       orderBy: { subject: { name: "asc" } },
     }),
+    awaitingTutorWrapUp(user.id),
   ]);
   const consent = user.consent;
   const cap = user.tutorStatus?.weeklyCap ?? 3;
@@ -69,6 +70,22 @@ export default async function TutorDashboardPage() {
         <p role="status" className="mt-0 mb-6 border border-accent-2-300 bg-accent-2-100 px-4 py-3 text-sm text-accent-2-800">
           Your tutoring is paused by school staff. You&apos;re hidden from learners until they lift it.
         </p>
+      )}
+
+      {toWrapUp.length > 0 && (
+        <Card kicker="How did it go?" className="mb-6 gap-2">
+          {toWrapUp.map((s) => (
+            <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-divider pt-2 first-of-type:border-t-0 first-of-type:pt-0">
+              <span className="text-sm">
+                <b>{s.subjectName}</b> with {s.learnerName} · {s.when}
+              </span>
+              <ButtonLink href={`/sessions/${s.threadId}?wrapup=1`} className="text-[13px]">
+                Wrap up session
+              </ButtonLink>
+            </div>
+          ))}
+          <span className="muted text-xs">Tell us if your learner showed up. Feedback goes privately to school staff.</span>
+        </Card>
       )}
 
       <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-6">

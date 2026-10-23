@@ -4,7 +4,8 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+  // The microphone is allowed for TierUp's own pages only (session transcripts), never for embeds.
+  { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=(), payment=()" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
 ];
 
@@ -16,6 +17,8 @@ const nextConfig: NextConfig = {
   // Make sure Prisma's query engine is copied into the standalone output.
   outputFileTracingIncludes: { "/**": ["./node_modules/.prisma/client/**/*"] },
   poweredByHeader: false,
+  // Session transcript clips (~30 s of audio) are uploaded through a server action.
+  experimental: { serverActions: { bodySizeLimit: "3mb" } },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

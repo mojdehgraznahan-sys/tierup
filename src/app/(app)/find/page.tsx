@@ -5,6 +5,7 @@ import { BrowseFilters, RequestForm, SubjectSelect } from "@/components/discover
 import { ResponseCard } from "@/components/discovery/response-card";
 import { TutorCard } from "@/components/discovery/tutor-card";
 import { db } from "@/server/db";
+import { crossSchoolEnabled } from "@/server/policies/rules";
 import { requireOnboarded } from "@/server/policies/session";
 import { subjectGroups } from "@/server/services/catalog";
 import { browseTutors, matchTutors, subjectsWithTutors } from "@/server/services/discovery";
@@ -71,7 +72,7 @@ async function Browse({
 
   return (
     <div className="grid gap-7 md:grid-cols-[200px_minmax(0,1fr)]">
-      <BrowseFilters subjects={subjects} subjectId={subjectId} filters={filters} schoolName={schoolName} />
+      <BrowseFilters subjects={subjects} subjectId={subjectId} filters={filters} schoolName={schoolName} crossSchool={crossSchoolEnabled()} />
       <div className="flex flex-col gap-3">
         <b>
           {tutors.length} tutor{tutors.length === 1 ? "" : "s"}

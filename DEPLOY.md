@@ -122,6 +122,10 @@ gcloud run deploy tierup --region=$REGION \
 `PARENT_CONSENT` is off by default: only teacher approval gates tutoring, and no parent emails are sent.
 Set `PARENT_CONSENT=true` to bring back the consent step, banners, parent emails and consent checks.
 
+`CROSS_SCHOOL_SESSIONS` is off by default: learners only see, request and book tutors at their own
+school. Set `CROSS_SCHOOL_SESSIONS=true` to let them meet tutors from other schools (online only).
+Sessions already booked across schools are kept.
+
 `TUTOR_APPROVAL_REMINDER_DAYS` (default 3; `0` turns it off) sets how long a tutor-approval request waits,
 after it becomes approvable, before the endorsing teacher gets one reminder email.
 
@@ -197,6 +201,60 @@ gcloud run services update tierup --region=$REGION \
 
 3. Book a test online session and check: both students get a calendar invite, the link opens, and an
    uninvited account has to knock. (This path is built but hasn't been run against live Google yet.)
+
+### AI session summaries (optional)
+
+After a session, the `session-summaries` job (part of `/api/cron/all`) asks Claude for the topics
+covered and next steps for practice, emails them to the learner and tutor, and shows them on the
+session page (staff see them too, linked from the Session log). Input is the tutor's notes and the
+chat; the tutor's staff-only feedback and flagged messages are never sent. Off until you turn it on:
+
+```bash
+secret ANTHROPIC_API_KEY "<Anthropic API key>"
+gcloud secrets add-iam-policy-binding ANTHROPIC_API_KEY --member=serviceAccount:tierup-run@$PROJECT_ID.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud run services update tierup --region=$REGION \
+  --update-secrets=ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest --update-env-vars=AI_SUMMARIES=claude
+```
+
+This sends minors' session notes and chats to Anthropic, so check it's covered by your agreements
+with schools first. Each session is summarized at most once (one Claude Opus 5.5 call).
+
+### Session transcripts (optional)
+
+Transcripts make the AI summaries much better than notes alone. A session is transcribed only when
+both students ticked "Transcribe my sessions" in the privacy pop-up and they're at the same school;
+either can turn it off for one session before it starts. Students and teachers only ever see the
+summary. Audio is never stored.
+
+**Default path (any school): mic capture + Google Cloud Speech-to-Text.** During the session, each
+student's TierUp session page records their own mic in 30-second clips (in person: the tutor's
+device records both); each clip is transcribed and discarded.
+
+```bash
+gcloud services enable speech.googleapis.com
+gcloud projects add-iam-policy-binding $PROJECT_ID --member=serviceAccount:tierup-run@$PROJECT_ID.iam.gserviceaccount.com --role=roles/speech.client
+gcloud run services update tierup --region=$REGION --update-env-vars=TRANSCRIPTS=on,TRANSCRIPT_STT=google,GOOGLE_CLOUD_PROJECT=$PROJECT_ID
+```
+
+**Google Education schools.** A school with Education Plus or the Teaching and Learning Upgrade can
+host its sessions in its own Workspace, where Meet writes the transcript:
+
+1. The school's admin creates a user to own the meetings (e.g. `tierup@school.org`), allows Meet
+   transcripts for students in the Admin console, and adds a domain-wide delegation entry for
+   TierUp's Meet service account (§10) with the scopes `calendar.events`, `meetings.space.created`
+   and `meetings.space.readonly`.
+2. Add the school: `--update-env-vars="^;^GOOGLE_EDUCATION_SCHOOLS=school.org=tierup@school.org"`
+   (comma-separate several schools).
+
+Google starts the transcript automatically only when the meeting's host or a co-host joins; the
+host account usually won't, so the tutor starts it (Meet → Activities → Transcripts). The transcript
+also stays in the school's Drive under its own retention rules. **Not yet tried against a real
+school Workspace** — run one session end to end before relying on it.
+
+**Archive.** Transcripts are deleted from the database after 30 days. To keep a de-identified copy
+for research, create a bucket and set `TRANSCRIPT_ARCHIVE=gs://tierup-transcripts-archive` plus an
+`ARCHIVE_SALT` secret (32+ random characters, never changed). Grant `tierup-run`
+`roles/storage.objectCreator` on that bucket only.
 
 ## 11. Later: move to Cloud SQL (optional)
 
