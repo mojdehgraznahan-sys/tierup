@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then npx prisma migrate deploy; fi && npx next build",
+  "functions": {
+    "src/app/api/cron/[job]/route.ts": { "maxDuration": 120 }
+  },
+  "crons": [
+    { "path": "/api/cron/all", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/hours-digest", "schedule": "0 12 * * 1-5" }
+  ]
+}
