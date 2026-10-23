@@ -109,12 +109,31 @@ export function Field({ label, htmlFor, children }: { label: string; htmlFor?: s
   );
 }
 
-/** Wordmark; `slogan` adds the pink "Team Up, TierUp" used in the logged-in header. */
+/**
+ * Logo mark ("Climber"): stairs with a student (pink) at the top and a tutor (gold) one step behind.
+ * Stairs use currentColor so the mark follows the text color. Keep in sync with src/app/icon.svg.
+ */
+export function LogoMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 190 200" className={className} aria-hidden focusable="false">
+      <path d="M7 186H52V141H96V97H140V54H182" fill="none" stroke="currentColor" strokeWidth="20" />
+      <circle cx="117" cy="67" r="15" fill="var(--color-accent)" />
+      <circle cx="160" cy="22" r="15" fill="var(--color-accent-2)" />
+    </svg>
+  );
+}
+
+/** Logo mark + wordmark; `slogan` adds the pink "Team Up, TierUp" used in the logged-in header. */
 export function Wordmark({ slogan, href = "/" }: { slogan?: boolean; href?: string }) {
   return (
-    <Link href={href} className="flex items-baseline gap-2.5 text-ink no-underline hover:text-ink">
-      <span className="h text-[22px]">TierUp</span>
-      {slogan && <span className="hidden text-xs font-medium tracking-[.04em] text-accent-2-600 sm:inline">Team Up, TierUp</span>}
+    <Link href={href} className="flex items-center gap-2 text-ink no-underline hover:text-ink">
+      <LogoMark className="h-8 w-auto" />
+      <span className="flex items-baseline gap-2.5">
+        <span className="h text-[22px]">
+          Tier<span className="text-accent-2-600">Up</span>
+        </span>
+        {slogan && <span className="hidden text-xs font-medium tracking-[.04em] text-accent-2-600 sm:inline">Team Up, TierUp</span>}
+      </span>
     </Link>
   );
 }

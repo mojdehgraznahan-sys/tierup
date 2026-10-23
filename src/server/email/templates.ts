@@ -8,6 +8,9 @@ const GOLD = "#DDA15E";
 const PINK = "#C13D93"; // accent-2-600: AA contrast for small text
 const BG = "#FDFBF7";
 
+/** PNG, not SVG: many mail clients block SVG images. The text name next to it covers blocked images. */
+const logoUrl = () => `${process.env.APP_URL ?? "http://localhost:3000"}/logo-mark.png`;
+
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -19,7 +22,7 @@ function layout(opts: { kicker: string; title: string; paragraphs: string[]; cta
     : "";
   return `<!doctype html><html><body style="margin:0;background:${BG};color:${INK};font-family:Helvetica,Arial,sans-serif">
 <div style="max-width:520px;margin:0 auto;padding:32px 20px">
-<div style="font-weight:800;font-size:20px;margin-bottom:28px">TierUp <span style="font-weight:500;font-size:12px;color:${PINK}">Team Up, TierUp</span></div>
+<div style="margin-bottom:28px"><img src="${esc(logoUrl())}" width="30" height="32" alt="" style="vertical-align:middle;border:0;margin-right:8px"><span style="vertical-align:middle;font-weight:800;font-size:20px">Tier<span style="color:${PINK}">Up</span></span> <span style="vertical-align:middle;font-weight:500;font-size:12px;color:${PINK}">Team Up, TierUp</span></div>
 <div style="border:1px solid rgba(59,35,20,.18);padding:24px">
 <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:${PINK};margin-bottom:8px">${esc(opts.kicker)}</div>
 <h1 style="font-size:24px;line-height:1.2;margin:0 0 16px">${esc(opts.title)}</h1>
