@@ -106,6 +106,7 @@ export default async function TutorDashboardPage() {
           {upcoming.length === 0 && <span className="muted border-t border-divider pt-2.5 text-[13px]">Nothing booked yet.</span>}
           {upcoming.map((s) => {
             const join = joinWindow(s.startsAt, s.durationMin);
+            const started = s.startsAt.getTime() <= Date.now();
             return (
               <div key={s.id} className="flex flex-col gap-1 border-t border-divider py-2.5">
                 <div className="flex justify-between gap-2">
@@ -129,6 +130,11 @@ export default async function TutorDashboardPage() {
                       </span>
                     ))}
                 </div>
+                {started && (
+                  <Link href={`/sessions/${s.threadId}`} className="self-start text-[13px]">
+                    Log session notes →
+                  </Link>
+                )}
               </div>
             );
           })}
@@ -158,7 +164,8 @@ export default async function TutorDashboardPage() {
         />
       ) : (
         <p className="muted m-0 border-t border-divider py-3.5 text-sm">
-          Requests show up here once your parent has consented and a teacher approves at least one of your subjects.
+          Requests show up here once {parentConsentEnabled() && "your parent has consented and "}a teacher approves at least one of
+          your subjects.
         </p>
       )}
 
@@ -183,7 +190,8 @@ export default async function TutorDashboardPage() {
           </div>
         ))}
         <p className="muted m-0 pt-3 text-[13px]">
-          You show up to learners for a subject once your parent has consented and a teacher approves it.
+          You show up to learners for a subject once {parentConsentEnabled() && "your parent has consented and "}a teacher approves
+          it.
         </p>
       </Card>
     </div>

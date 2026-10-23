@@ -55,7 +55,7 @@ export default async function StudentHomePage() {
               <span className="text-sm">
                 <b>{s.subjectName}</b> with {s.tutorName} · {s.when}
               </span>
-              <ButtonLink href={`/sessions/${s.threadId}`} className="text-[13px]">
+              <ButtonLink href={`/sessions/${s.threadId}?review=1`} className="text-[13px]">
                 Review session
               </ButtonLink>
             </div>

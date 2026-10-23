@@ -65,6 +65,18 @@ describe("complete & review", () => {
     await expect(completeAndReview(w.learner.id, w.sessionId, { happened: "yes", stars: 4 }, AFTER)).rejects.toThrow(/already been wrapped up/);
   });
 
+  it("turns a double submit into a clear error and keeps one review", async () => {
+    const w = await bookedWorld();
+    const results = await Promise.allSettled([
+      completeAndReview(w.learner.id, w.sessionId, { happened: "yes", stars: 5 }, AFTER),
+      completeAndReview(w.learner.id, w.sessionId, { happened: "yes", stars: 5 }, AFTER),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const failed = results.find((r) => r.status === "rejected") as PromiseRejectedResult;
+    expect(String(failed.reason)).toMatch(/already been wrapped up/);
+    expect(await db.review.count()).toBe(1);
+  });
+
   it("routes low ratings privately to staff", async () => {
     const w = await bookedWorld();
     await completeAndReview(w.learner.id, w.sessionId, { happened: "cut_short", stars: 2, comment: "Left early" }, AFTER);

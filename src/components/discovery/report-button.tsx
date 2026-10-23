@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { reportAction } from "@/app/(app)/discovery-actions";
 import { Button } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
+import { useDialog } from "@/components/ui/use-dialog";
 
 const REASONS = [
   "Inappropriate messages",
@@ -18,25 +19,10 @@ type Props = { againstUserId?: string; sessionId?: string; threadId?: string; la
 /** "⚑ Report": a small dialog that files a Report for school staff. */
 export function ReportButton({ label = "⚑ Report", className = "text-xs text-neutral-700", ...target }: Props) {
   const flash = useToast();
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, trigger, dialog } = useDialog();
   const [reason, setReason] = useState<(typeof REASONS)[number]>(REASONS[0]);
   const [details, setDetails] = useState("");
   const [pending, startTransition] = useTransition();
-  const trigger = useRef<HTMLButtonElement>(null);
-  const dialog = useRef<HTMLDivElement>(null);
-
-  // Keyboard: focus moves into the dialog, Escape closes it, focus returns to the trigger.
-  useEffect(() => {
-    if (!open) return;
-    const opener = trigger.current;
-    dialog.current?.querySelector<HTMLElement>("input, textarea, button")?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      opener?.focus();
-    };
-  }, [open]);
 
   const submit = () =>
     startTransition(async () => {

@@ -8,10 +8,7 @@ import { getMeetProvider } from "@/server/integrations/meet";
 import { sessionWhen } from "@/server/services/sessions";
 import { parentEmailFor } from "@/server/policies/rules";
 import { displayName } from "@/lib/names";
-
-export const REVIEW_TAGS = ["Explained clearly", "Patient", "On time", "Prepared"] as const;
-/** Ratings at or below this go privately to school staff as well. */
-export const LOW_RATING = 2;
+import { LOW_RATING, REVIEW_TAGS } from "@/lib/review";
 
 const appUrl = () => process.env.APP_URL ?? "http://localhost:3000";
 
@@ -57,10 +54,12 @@ export async function completeAndReview(learnerId: string, sessionId: string, ra
   const learnerName = displayName(s.learner.name);
 
   await db.$transaction(async (tx) => {
-    await tx.tutoringSession.update({
-      where: { id: s.id },
+    // Conditional, so a double submit (two tabs, double click) gets a clear error instead of a crash.
+    const { count } = await tx.tutoringSession.updateMany({
+      where: { id: s.id, status: "confirmed" },
       data: { status: happened ? "completed" : "no_show", learnerConfirmedAt: happened ? now : null },
     });
+    if (count === 0) throw new UserError("This session has already been wrapped up.");
     await tx.review.create({
       data: {
         sessionId: s.id,

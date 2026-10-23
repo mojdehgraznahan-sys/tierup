@@ -8,11 +8,12 @@ import { listThreads, threadView } from "@/server/services/messaging";
 
 export const metadata: Metadata = { title: "Sessions" };
 
-type Props = { params: Promise<{ threadId: string }> };
+type Props = { params: Promise<{ threadId: string }>; searchParams: Promise<{ review?: string }> };
 
-export default async function ThreadPage({ params }: Props) {
+export default async function ThreadPage({ params, searchParams }: Props) {
   const user = await requireOnboarded();
   const { threadId } = await params;
+  const { review } = await searchParams;
   const view = await threadView(user, threadId);
   if (!view) notFound();
 
@@ -31,7 +32,7 @@ export default async function ThreadPage({ params }: Props) {
         <Chat key={view.id} threadId={view.id} title={title} initialMessages={view.messages} readOnly={staff} showSenders={staff} />
       </div>
       <div className="border-t border-divider lg:overflow-y-auto lg:border-t-0">
-        <SessionPanel view={view} />
+        <SessionPanel view={view} openReview={review === "1"} />
       </div>
     </SessionsLayout>
   );

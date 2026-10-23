@@ -1,4 +1,8 @@
 import { ReportButton } from "@/components/discovery/report-button";
+import { CancelSessionButton } from "@/components/sessions/cancel-session-button";
+import { ReviewButton } from "@/components/sessions/review-button";
+import { TutorNotes } from "@/components/sessions/tutor-notes";
+import { parentConsentEnabled } from "@/server/policies/rules";
 import { CopyButton } from "@/components/ui/copy-button";
 import { ButtonLink, Card, Tag } from "@/components/ui/primitives";
 import type { threadView } from "@/server/services/messaging";
@@ -6,8 +10,11 @@ import { joinWindow, sessionFormatLabel } from "@/lib/format";
 
 type View = NonNullable<Awaited<ReturnType<typeof threadView>>>;
 
-/** Right column: what's booked (or how to book), the Meet box, and Report. */
-export function SessionPanel({ view }: { view: View }) {
+/**
+ * Right column: what's booked (or how to book), the Meet box, wrap-up, and Report.
+ * `openReview` opens the review dialog straight away (Home's "Review session" link).
+ */
+export function SessionPanel({ view, openReview = false }: { view: View; openReview?: boolean }) {
   const s = view.session;
   const other = view.role === "tutor" ? view.learner : view.tutor;
 
@@ -46,7 +53,25 @@ export function SessionPanel({ view }: { view: View }) {
           </div>
           {s.format === "online" && s.meetUrl && s.status === "confirmed" && <MeetBox url={s.meetUrl} startsAt={s.startsAt} durationMin={s.durationMin} />}
           {s.format === "in_person" && <span className="text-sm">📍 {s.location ?? "School"}</span>}
+          {s.status === "confirmed" && s.started && !s.review && (
+            view.role === "learner" ? (
+              <ReviewButton sessionId={s.id} subjectName={view.subject.name} tutorName={view.tutor.name} defaultOpen={openReview} />
+            ) : (
+              <p className="muted m-0 text-[13px]">Waiting for {view.learner.name} to mark it complete and review.</p>
+            )
+          )}
+          {s.status === "confirmed" && !s.started && view.role !== "staff" && (
+            <CancelSessionButton
+              sessionId={s.id}
+              summary={`${s.when} · ${view.subject.name} with ${other.name}`}
+              notify={cancelNotify(view)}
+              online={s.format === "online"}
+            />
+          )}
           <Outcome session={s} role={view.role} />
+          {view.role === "tutor" && s.started && s.status !== "cancelled" && (
+            <TutorNotes sessionId={s.id} initial={s.tutorNotes} hint={notesHint(view.learner.name)} />
+          )}
         </>
       )}
 
@@ -59,7 +84,19 @@ export function SessionPanel({ view }: { view: View }) {
   );
 }
 
-const HAPPENED_LABEL = { yes: "It happened", cut_short: "Cut short", no_show: "Tutor didn't show" } as const;
+/** Who cancelSession emails: the other participant, plus the learner's parent when consent is on. */
+function cancelNotify(view: View) {
+  const parents = parentConsentEnabled();
+  if (view.role === "learner") return `${view.tutor.name}${parents ? " and your parent" : ""}`;  return `${view.learner.name}${parents ? " and their parent" : ""}`;
+}
+
+function notesHint(learnerName: string) {
+  return parentConsentEnabled()
+    ? `School staff can read these. If ${learnerName}'s parent gets session summaries, notes saved before ${learnerName} confirms the session are included.`
+    : "Private to you and school staff.";
+}
+
+const HAPPENED_LABEL ={ yes: "It happened", cut_short: "Cut short", no_show: "Tutor didn't show" } as const;
 
 /** Read-only wrap-up: cancellation, the learner's review, and the tutor's notes. */
 function Outcome({ session: s, role }: { session: NonNullable<View["session"]>; role: View["role"] }) {
@@ -82,7 +119,7 @@ function Outcome({ session: s, role }: { session: NonNullable<View["session"]>; 
           {s.review.comment && <span className="text-[13px]">&ldquo;{s.review.comment}&rdquo;</span>}
         </Card>
       )}
-      {role !== "learner" && s.tutorNotes && (
+      {role === "staff" && s.tutorNotes && (
         <Card className="gap-1 p-3">
           <span className="card-meta">Tutor&apos;s notes</span>
           <span className="text-[13px] whitespace-pre-wrap">{s.tutorNotes}</span>
