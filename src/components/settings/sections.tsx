@@ -10,7 +10,9 @@ import {
   setAvailabilityAction,
   updateBasicsAction,
   updateBioAction,
+  updateLearnerClassAction,
   updateParentAction,
+  updateParentFyiAction,
   updateStaffNameAction,
 } from "@/app/(app)/settings/actions";
 import { Button, Card, Field, Tag } from "@/components/ui/primitives";
@@ -241,7 +243,9 @@ function SubjectPicker({ groups, value, onChange, id }: { groups: Group[]; value
   );
 }
 
-export function LearnerSubjectsSection({ subjects, groups }: { subjects: { id: string; name: string }[]; groups: Group[] }) {
+type LearnerClass = { id: string; name: string; className: string; teacherName: string; teacherEmail: string };
+
+export function LearnerSubjectsSection({ subjects, groups, staffDomain }: { subjects: LearnerClass[]; groups: Group[]; staffDomain: string | null }) {
   const { pending, error, save } = useSave();
   const [pick, setPick] = useState("");
   const [custom, setCustom] = useState("");
@@ -255,15 +259,14 @@ export function LearnerSubjectsSection({ subjects, groups }: { subjects: { id: s
     );
   return (
     <Card id="classes" kicker="Classes you want help with" className="gap-3.5">
-      <div className="flex flex-wrap gap-2">
+      <p className="muted m-0 text-[13px]">
+        Add your class and teacher (optional) and your teacher gets a weekly summary of what you worked on with tutors.
+        {staffDomain && ` Use their school email (…@${staffDomain}).`}
+      </p>
+      <div className="flex flex-col">
         {subjects.length === 0 && <span className="muted text-sm">None yet.</span>}
         {subjects.map((s) => (
-          <span key={s.id} className="tag tag-neutral gap-1.5 py-1 text-xs">
-            {s.name}
-            <button type="button" aria-label={`Remove ${s.name}`} className="cursor-pointer px-0.5 text-sm leading-none" disabled={pending} onClick={() => save(() => removeLearnerSubjectAction(s.id))}>
-              ×
-            </button>
-          </span>
+          <ClassRow key={s.id} subject={s} onRemove={() => save(() => removeLearnerSubjectAction(s.id))} removing={pending} />
         ))}
       </div>
       <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
@@ -276,6 +279,70 @@ export function LearnerSubjectsSection({ subjects, groups }: { subjects: { id: s
       </div>
       {pick === "__other" && <input aria-label="Course name" className="input" maxLength={60} placeholder="Course name" value={custom} onChange={(e) => setCustom(e.target.value)} />}
       <ErrorLine error={error} />
+    </Card>
+  );
+}
+
+function ClassRow({ subject: s, onRemove, removing }: { subject: LearnerClass; onRemove: () => void; removing: boolean }) {
+  const { pending, error, save } = useSave();
+  const [editing, setEditing] = useState(false);
+  const [className, setClassName] = useState(s.className);
+  const [teacherName, setTeacherName] = useState(s.teacherName);
+  const [teacherEmail, setTeacherEmail] = useState(s.teacherEmail);
+  const details = [s.className, s.teacherName || s.teacherEmail].filter(Boolean).join(" · ");
+  return (
+    <div className="flex flex-col gap-2 border-t border-divider py-2.5 first:border-t-0">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="flex flex-col">
+          <b className="text-sm">{s.name}</b>
+          <span className="muted text-xs">{details || "No class or teacher added"}</span>
+        </span>
+        <span className="flex gap-1.5">
+          <Button variant="ghost" className="text-xs" aria-expanded={editing} onClick={() => setEditing(!editing)}>
+            {editing ? "Close" : "Class & teacher"}
+          </Button>
+          <Button variant="ghost" className="text-xs" aria-label={`Remove ${s.name}`} disabled={removing} onClick={onRemove}>
+            Remove
+          </Button>
+        </span>
+      </div>
+      {editing && (
+        <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
+          <input aria-label={`Class for ${s.name}`} className="input" maxLength={60} placeholder="Class (e.g. Period 3)" value={className} onChange={(e) => setClassName(e.target.value)} />
+          <input aria-label={`Teacher name for ${s.name}`} className="input" maxLength={80} placeholder="Teacher name" value={teacherName} onChange={(e) => setTeacherName(e.target.value)} />
+          <input aria-label={`Teacher email for ${s.name}`} type="email" className="input" placeholder="teacher@school.org" value={teacherEmail} onChange={(e) => setTeacherEmail(e.target.value)} />
+          <Button variant="primary" disabled={pending} onClick={() => save(() => updateLearnerClassAction(s.id, { className, teacherName, teacherEmail }), () => setEditing(false))}>
+            Save
+          </Button>
+        </div>
+      )}
+      <ErrorLine error={error} />
+    </div>
+  );
+}
+
+/** While parent consent is off: an optional parent email for FYI session summaries. */
+export function ParentFyiSection(props: { parentEmail: string; on: boolean }) {
+  const { pending, error, save } = useSave();
+  const [parentEmail, setParentEmail] = useState(props.parentEmail);
+  const [on, setOn] = useState(props.on);
+  return (
+    <Card id="parent" kicker="Parent or guardian (optional)" className="gap-3.5">
+      <p className="muted m-0 text-[13px]">They get a short summary after each session, as an FYI. They can turn these off from any of those emails.</p>
+      <Field label="Parent email" htmlFor="s-fyi-parent">
+        <input id="s-fyi-parent" type="email" className="input" placeholder="parent@email.com" value={parentEmail} onChange={(e) => setParentEmail(e.target.value)} />
+      </Field>
+      {props.parentEmail && (
+        <label className="radio">
+          <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
+          <span className="dot" />
+          Send them session summaries
+        </label>
+      )}
+      <ErrorLine error={error} />
+      <Button variant="primary" className="self-start" disabled={pending} onClick={() => save(() => updateParentFyiAction({ parentEmail, on }))}>
+        Save
+      </Button>
     </Card>
   );
 }

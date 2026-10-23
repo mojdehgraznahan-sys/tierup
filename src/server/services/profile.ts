@@ -7,10 +7,10 @@ import { UserError } from "@/server/errors";
 import { sendEmailSafely } from "@/server/email/send";
 import { parentConsentEmail } from "@/server/email/templates";
 import { notifyTeachersOfRequests } from "@/server/services/approval-notifications";
-import { newToken } from "@/server/services/onboarding";
+import { assertClassTeacher, newToken } from "@/server/services/onboarding";
 import { detectContactInfo } from "@/lib/moderation";
 import { displayName } from "@/lib/names";
-import { COURSE_GRADES, emailDomain } from "@/lib/validation/onboarding";
+import { classInfoSchema, COURSE_GRADES, emailDomain, type ClassInfo } from "@/lib/validation/onboarding";
 
 const appUrl = () => process.env.APP_URL ?? "http://localhost:3000";
 const email = z.string().trim().toLowerCase().email("Enter a valid email address");
@@ -40,7 +40,14 @@ export async function settingsView(userId: string) {
     school: user.school ? { name: user.school.name, staffDomain: staffDomainsRelaxed() ? null : (user.school.staffEmailDomains[0] ?? null) } : null,
     slots: (user.school?.slots ?? []).filter((s) => s.block !== "weekend").map((s) => ({ id: s.id, label: s.label })),
     availability: user.availability.map((a) => `${a.weekday}:${a.slotId}`),
-    learnerSubjects: user.learnerSubjects.map((l) => ({ id: l.subjectId, name: l.subject.name })),
+    learnerSubjects: user.learnerSubjects.map((l) => ({
+      id: l.subjectId,
+      name: l.subject.name,
+      className: l.className ?? "",
+      teacherName: l.teacherName ?? "",
+      teacherEmail: l.teacherEmail ?? "",
+    })),
+    parentFyi: { email: user.parentEmail ?? "", on: !user.parentSummariesOff },
     tutorSubjects: user.tutorSubjects.map((t) => ({
       id: t.id,
       subjectId: t.subjectId,
@@ -141,6 +148,41 @@ export async function addLearnerSubject(userId: string, input: { subjectId?: str
     return s;
   });
   return { toast: `${subject.name} added` };
+}
+
+/** The class and teacher for one of the learner's subjects (all optional). */
+export async function updateLearnerClass(userId: string, subjectId: string, raw: ClassInfo) {
+  const info = classInfoSchema.parse(raw);
+  const user = await db.user.findUniqueOrThrow({ where: { id: userId }, include: { school: true } });
+  assertClassTeacher(info.teacherEmail || undefined, [user.email.toLowerCase(), user.schoolEmail?.toLowerCase() ?? ""], user.school?.staffEmailDomains ?? []);
+  const { count } = await db.learnerSubject.updateMany({
+    where: { userId, subjectId },
+    data: { className: info.className || null, teacherName: info.teacherName || null, teacherEmail: info.teacherEmail || null },
+  });
+  if (count === 0) throw new UserError("Add this class first.");
+  return { toast: info.teacherEmail ? "Saved. Your teacher will get a weekly summary." : "Saved" };
+}
+
+export const parentFyiSchema = z.object({ parentEmail: z.union([email, z.literal("")]), on: z.boolean() });
+
+/** While parent consent is off: an optional parent email for FYI session summaries. */
+export async function updateParentFyi(userId: string, raw: z.input<typeof parentFyiSchema>) {
+  const input = parentFyiSchema.parse(raw);
+  const user = await db.user.findUniqueOrThrow({ where: { id: userId } });
+  if (input.parentEmail && (input.parentEmail === user.email.toLowerCase() || input.parentEmail === user.schoolEmail?.toLowerCase())) {
+    throw new UserError("Enter your parent's email, not your own.");
+  }
+  const changed = (user.parentEmail ?? "") !== input.parentEmail;
+  await db.user.update({
+    where: { id: userId },
+    data: {
+      parentEmail: input.parentEmail || null,
+      // A new address starts with summaries on and a fresh opt-out link.
+      parentSummariesOff: changed ? false : !input.on,
+      ...(changed && input.parentEmail ? { parentOptOutToken: newToken() } : {}),
+    },
+  });
+  return { toast: input.parentEmail ? "Saved" : "Parent email removed" };
 }
 
 export async function removeLearnerSubject(userId: string, subjectId: string) {

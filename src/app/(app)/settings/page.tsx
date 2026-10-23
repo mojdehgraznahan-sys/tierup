@@ -4,6 +4,7 @@ import {
   BasicsSection,
   BioSection,
   LearnerSubjectsSection,
+  ParentFyiSection,
   ParentSection,
   PrivacySection,
   StaffNameSection,
@@ -38,9 +39,10 @@ export default async function SettingsPage() {
       )}
       {isTutor && <BioSection bio={v.bio} />}
       {(isLearner || isTutor) && <AvailabilitySection slots={v.slots} selected={v.availability} hasSchool={!!v.school} />}
-      {isLearner && <LearnerSubjectsSection subjects={v.learnerSubjects} groups={groups} />}
+      {isLearner && <LearnerSubjectsSection subjects={v.learnerSubjects} groups={groups} staffDomain={v.school?.staffDomain ?? null} />}
       {isTutor && <TutorSubjectsSection subjects={v.tutorSubjects} groups={groups} staffDomain={v.school?.staffDomain ?? null} />}
       {(isLearner || isTutor) && <PrivacySection askTranscripts={transcriptsEnabled()} transcripts={consents.transcripts} analytics={consents.analytics} />}
+      {!parentConsentEnabled() && isLearner && <ParentFyiSection parentEmail={v.parentFyi.email} on={v.parentFyi.on} />}
       {parentConsentEnabled() && v.consent && <ParentSection parentEmail={v.consent.parentEmail} status={v.consent.status} sendSummaries={v.consent.sendSummaries} />}
     </div>
   );

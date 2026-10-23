@@ -20,6 +20,17 @@ import {
 } from "@/lib/validation/onboarding";
 
 export const newToken = () => randomBytes(24).toString("base64url");
+
+/**
+ * A learner's class teacher: optional, but when given it must be a school staff address (the
+ * teacher gets session summaries) and not the student's own.
+ */
+export function assertClassTeacher(teacherEmail: string | undefined, own: string[], staffDomains: string[]) {
+  if (!teacherEmail) return;
+  if (own.includes(teacherEmail)) throw new UserError("Enter your teacher's email, not your own.");
+  const domains = staffDomainsRelaxed() ? [] : staffDomains;
+  if (domains.length && !domains.includes(emailDomain(teacherEmail))) throw new UserError(`Use your teacher's school email (…@${domains[0]}).`);
+}
 const appUrl = () => process.env.APP_URL ?? "http://localhost:3000";
 
 const WEEKDAYS = [1, 2, 3, 4, 5];
@@ -50,6 +61,12 @@ export async function completeOnboarding(userId: string, raw: OnboardingInput) {
   const customNames = [...new Set(input.subjectKeys.filter(isCustomKey).map((k) => customName(k).trim()))];
   const catalog = await db.subject.findMany({ where: { id: { in: catalogIds }, isCustom: false } });
   if (catalog.length !== new Set(catalogIds).size) throw new UserError("One of those subjects isn't available. Please reselect.");
+
+  if (input.role === "learner") {
+    for (const info of Object.values(input.classes)) assertClassTeacher(info.teacherEmail || undefined, [ownEmail], school?.staffEmailDomains ?? []);
+  }
+  const parentFyi = !consentOn && input.role === "learner" && input.parentEmail ? input.parentEmail : null;
+  if (parentFyi === ownEmail) throw new UserError("Enter your parent's email, not your own.");
 
   if (input.role === "tutor") {
     const domains = staffDomainsRelaxed() ? [] : (school?.staffEmailDomains ?? []);
@@ -97,9 +114,19 @@ export async function completeOnboarding(userId: string, raw: OnboardingInput) {
 
     if (input.role === "learner") {
       await tx.learnerSubject.createMany({
-        data: input.subjectKeys.map((k) => ({ userId, subjectId: subjectIdForKey(k) })),
+        data: input.subjectKeys.map((k) => {
+          const info = input.classes[k] ?? {};
+          return {
+            userId,
+            subjectId: subjectIdForKey(k),
+            className: info.className || null,
+            teacherName: info.teacherName || null,
+            teacherEmail: info.teacherEmail || null,
+          };
+        }),
         skipDuplicates: true,
       });
+      if (parentFyi) await tx.user.update({ where: { id: userId }, data: { parentEmail: parentFyi, parentOptOutToken: newToken() } });
     } else {
       const teacherEmails = [...new Set(Object.values(input.endorsements).map((e) => e.teacherEmail))];
       const staff = school

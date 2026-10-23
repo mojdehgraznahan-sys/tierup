@@ -12,6 +12,7 @@ import { getMeetProvider } from "@/server/integrations/meet";
 import { sendApprovalReminders } from "@/server/services/approval-notifications";
 import { sessionWhen } from "@/server/services/sessions";
 import { summarizeSessions } from "@/server/services/summaries";
+import { sendTeacherDigests } from "@/server/services/teacher-digest";
 import { archiveOldTranscripts } from "@/server/services/transcript-archive";
 import { finishTranscripts } from "@/server/services/transcripts";
 import { displayName } from "@/lib/names";
@@ -198,6 +199,8 @@ export const JOBS = {
   transcripts: () => finishTranscripts(),
   "session-summaries": () => summarizeSessions(),
   "archive-transcripts": () => archiveOldTranscripts(),
+  /** Weekly (Monday morning), not part of the frequent run. */
+  "teacher-digest": () => sendTeacherDigests(),
 } as const;
 
 export type JobName = keyof typeof JOBS;

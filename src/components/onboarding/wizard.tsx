@@ -17,6 +17,7 @@ import {
   customName,
   emailDomain,
   isCustomKey,
+  type ClassInfo,
   type OnboardingInput,
 } from "@/lib/validation/onboarding";
 
@@ -60,6 +61,7 @@ export function OnboardingWizard(props: Props) {
   const [customs, setCustoms] = useState<string[]>([]);
   const [other, setOther] = useState("");
   const [endorsements, setEndorsements] = useState<Record<string, Endorsement>>({});
+  const [classes, setClasses] = useState<Record<string, ClassInfo>>({});
   const [blocks, setBlocks] = useState<Block[]>(["after_school"]);
   const [format, setFormat] = useState<FormatChoice>("both");
   const [parentEmail, setParentEmail] = useState("");
@@ -86,6 +88,11 @@ export function OnboardingWizard(props: Props) {
     setEndorsements((e) => ({ ...e, [key]: { ...(e[key] ?? { teacherEmail: "" }), ...patch } }));
   }
 
+  function setClass(key: string, patch: Partial<ClassInfo>) {
+    setError(null);
+    setClasses((c) => ({ ...c, [key]: { ...c[key], ...patch } }));
+  }
+
   /** Client-side check for the current step; the server re-validates everything. */
   function stepError(): string | null {
     if (step === 1) {
@@ -96,6 +103,14 @@ export function OnboardingWizard(props: Props) {
     }
     if (step === 2) {
       if (selected.length === 0) return "Pick at least one subject.";
+      if (role === "learner") {
+        for (const key of selected) {
+          const email = classes[key]?.teacherEmail?.trim() ?? "";
+          if (!email) continue;
+          if (!isEmail(email)) return `Check the teacher's email for ${subjectName(key)}.`;
+          if (school?.staffDomain && emailDomain(email) !== school.staffDomain) return `Use your teacher's school email (…@${school.staffDomain}).`;
+        }
+      }
       if (role === "tutor") {
         for (const key of selected) {
           const email = endorsements[key]?.teacherEmail?.trim() ?? "";
@@ -108,6 +123,10 @@ export function OnboardingWizard(props: Props) {
       }
     }
     if (step === 3 && blocks.length === 0) return "Pick at least one time you're usually free.";
+    if (step === 3 && !props.consentEnabled && role === "learner" && parentEmail.trim()) {
+      if (!isEmail(parentEmail)) return "Check your parent's email.";
+      if (parentEmail.trim().toLowerCase() === props.accountEmail.toLowerCase()) return "Enter your parent's email, not your own.";
+    }
     if (step === 4 && props.consentEnabled) {
       if (!isEmail(parentEmail)) return "Enter your parent's email.";
       if (parentEmail.trim().toLowerCase() === props.accountEmail.toLowerCase()) return "Enter your parent's email, not your own.";
@@ -133,9 +152,10 @@ export function OnboardingWizard(props: Props) {
       schoolEmail,
       subjectKeys: selected,
       endorsements: role === "tutor" ? Object.fromEntries(selected.map((k) => [k, endorsements[k]!])) : {},
+      classes: role === "learner" ? Object.fromEntries(selected.filter((k) => classes[k]).map((k) => [k, classes[k]!])) : {},
       blocks,
       format,
-      ...(props.consentEnabled ? { parentEmail, sendSummaries } : {}),
+      ...(props.consentEnabled ? { parentEmail, sendSummaries } : role === "learner" && parentEmail.trim() ? { parentEmail } : {}),
     };
     startTransition(async () => {
       const result = await finishOnboarding(input);
@@ -291,6 +311,24 @@ export function OnboardingWizard(props: Props) {
               </div>
             </Field>
 
+            {role === "learner" && selected.length > 0 && (
+              <div className="flex flex-col gap-3 border-t border-divider pt-4">
+                <span className="kicker">Your classes (optional)</span>
+                <p className="muted m-0 text-[13px]">
+                  Add your class and teacher, and your teacher gets a weekly summary of what you worked on with tutors.
+                  {school?.staffDomain && ` Use their school email (…@${school.staffDomain}).`}
+                </p>
+                {selected.map((key) => (
+                  <div key={key} className="grid gap-2 sm:grid-cols-[150px_1fr_1fr_1fr] sm:items-end">
+                    <span className="text-sm font-semibold sm:pb-2">{subjectName(key)}</span>
+                    <input aria-label={`Class for ${subjectName(key)}`} className="input" maxLength={60} placeholder="Class (e.g. Period 3)" value={classes[key]?.className ?? ""} onChange={(e) => setClass(key, { className: e.target.value })} />
+                    <input aria-label={`Teacher name for ${subjectName(key)}`} className="input" maxLength={80} placeholder="Teacher name" value={classes[key]?.teacherName ?? ""} onChange={(e) => setClass(key, { teacherName: e.target.value })} />
+                    <input aria-label={`Teacher email for ${subjectName(key)}`} type="email" className="input" placeholder="teacher@school.org" value={classes[key]?.teacherEmail ?? ""} onChange={(e) => setClass(key, { teacherEmail: e.target.value })} />
+                  </div>
+                ))}
+              </div>
+            )}
+
             {role === "tutor" && (
               <div className="flex flex-col gap-3 border-t border-divider pt-4">
                 <span className="kicker">Endorsing teachers</span>
@@ -371,6 +409,12 @@ export function OnboardingWizard(props: Props) {
               </div>
             </div>
             <p className="muted m-0 text-[13px]">You can fine-tune exact days and times later in Settings.</p>
+            {!props.consentEnabled && role === "learner" && (
+              <Field label="Parent or guardian email (optional)" htmlFor="fyi-parent">
+                <input id="fyi-parent" type="email" className="input" placeholder="parent@email.com" value={parentEmail} onChange={(e) => { setError(null); setParentEmail(e.target.value); }} />
+                <span className="muted mt-1 block text-xs">They&apos;ll get a short summary after each session, as an FYI. They can turn these off anytime.</span>
+              </Field>
+            )}
           </>
         )}
 

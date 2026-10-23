@@ -219,6 +219,48 @@ export function aiSessionSummaryEmail(opts: { to: string; otherName: string; sub
   });
 }
 
+/** FYI to the learner's parent: the AI summary, with a one-click way to stop these. */
+export function aiSessionSummaryParentEmail(opts: { to: string; studentName: string; tutorName: string; subject: string; when: string; topics: string[]; nextSteps: string[]; stopUrl: string }): Email {
+  return build(opts.to, `FYI: ${opts.studentName}'s ${opts.subject} tutoring session`, {
+    kicker: "Session summary (FYI)",
+    title: `${opts.studentName}'s ${opts.subject} session`,
+    paragraphs: [
+      `${opts.when}, with peer tutor ${opts.tutorName}. Here's what they covered, summarized by AI.`,
+      "Topics covered:",
+      ...opts.topics.map((t) => `• ${t}`),
+      ...(opts.nextSteps.length ? ["Practice next:", ...opts.nextSteps.map((s) => `• ${s}`)] : []),
+      "Nothing to do on your part. AI can get things wrong, so ask your child if anything looks off.",
+    ],
+    cta: { label: "Stop these emails", url: opts.stopUrl },
+    footer: `You're getting this because ${opts.studentName} added your email on TierUp, a peer-tutoring platform for DMV high schools.`,
+  });
+}
+
+/** Weekly digest for a class teacher: what their students worked on with peer tutors. */
+export function teacherDigestEmail(opts: {
+  to: string;
+  teacherName: string | null;
+  sessions: { studentName: string; className: string | null; subject: string; tutorName: string; when: string; topics: string[]; nextSteps: string[] }[];
+  stopUrl: string;
+}): Email {
+  const count = opts.sessions.length;
+  return build(opts.to, `Peer tutoring this week: ${count} session${count === 1 ? "" : "s"} with your students`, {
+    kicker: "Weekly tutoring digest",
+    title: `${count} tutoring session${count === 1 ? "" : "s"} this week`,
+    paragraphs: [
+      `${opts.teacherName ? `Hi ${opts.teacherName}, h` : "H"}ere's what your students worked on with TierUp peer tutors. They named you as their teacher for these classes.`,
+      ...opts.sessions.flatMap((s) => [
+        `${s.studentName} · ${[s.subject, s.className].filter(Boolean).join(", ")} · with ${s.tutorName}, ${s.when}`,
+        `Covered: ${s.topics.join("; ")}`,
+        ...(s.nextSteps.length ? [`Practice next: ${s.nextSteps.join(" ")}`] : []),
+      ]),
+      "Summaries are written by AI from the session, so they can get details wrong.",
+    ],
+    cta: { label: "Stop these weekly emails", url: opts.stopUrl },
+    footer: "You're getting this weekly because students listed you as their teacher on TierUp.",
+  });
+}
+
 export function sessionCancelledEmail(opts: { to: string; byName: string; subject: string; when: string; reason: string | null; url: string }): Email {
   return build(opts.to, `Cancelled: ${opts.subject}, ${opts.when}`, {
     kicker: "Cancelled",

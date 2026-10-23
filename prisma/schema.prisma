@@ -214,18 +214,25 @@ model User {
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
 
-  school          School?            @relation(fields: [schoolId], references: [id])
-  accounts        Account[]
-  authSessions    Session[]
-  availability    AvailabilitySlot[]
-  consentRecords  ConsentRecord[]
-  consent         ParentConsent?
-  tutorStatus     TutorStatus?
-  learnerSubjects LearnerSubject[]
-  tutorSubjects   TutorSubject[]     @relation("TutorSubjects")
-  endorsements    TutorSubject[]     @relation("Endorser")
-  decidedSubjects TutorSubject[]     @relation("SubjectDecider")
-  customSubjects  Subject[]
+  school             School?            @relation(fields: [schoolId], references: [id])
+  accounts           Account[]
+  authSessions       Session[]
+  /// Optional parent email for FYI session summaries (used while PARENT_CONSENT is off; with it on,
+  /// the consent record's email is used).
+  parentEmail        String?
+  /// The parent turned off FYI summaries from the link in an email.
+  parentSummariesOff Boolean            @default(false)
+  /// Unguessable token for that one-click opt-out link.
+  parentOptOutToken  String?            @unique
+  availability       AvailabilitySlot[]
+  consentRecords     ConsentRecord[]
+  consent            ParentConsent?
+  tutorStatus        TutorStatus?
+  learnerSubjects    LearnerSubject[]
+  tutorSubjects      TutorSubject[]     @relation("TutorSubjects")
+  endorsements       TutorSubject[]     @relation("Endorser")
+  decidedSubjects    TutorSubject[]     @relation("SubjectDecider")
+  customSubjects     Subject[]
 
   helpRequests     HelpRequest[]
   requestResponses RequestResponse[]
@@ -306,9 +313,14 @@ model Subject {
 }
 
 model LearnerSubject {
-  userId    String
-  subjectId String
-  dueDate   DateTime?
+  userId       String
+  subjectId    String
+  dueDate      DateTime?
+  /// Optional, from the learner: their class ("Period 3") and teacher, who gets a weekly digest
+  /// of this subject's session summaries. The email must be on the school's staff domain.
+  className    String?
+  teacherName  String?
+  teacherEmail String?
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
@@ -530,18 +542,20 @@ model Review {
 /// school staff see it; tutorFeedback (staff-only) is never part of the input. The row is created
 /// first to claim the session, so each session is summarized (and billed) at most once.
 model SessionSummary {
-  id          String    @id @default(cuid())
-  sessionId   String    @unique
-  topics      String[]  @default([])
-  nextSteps   String[]  @default([])
+  id                String    @id @default(cuid())
+  sessionId         String    @unique
+  topics            String[]  @default([])
+  nextSteps         String[]  @default([])
   /// The Claude model that wrote it (after any server-side fallback).
-  model       String?
-  generatedAt DateTime?
+  model             String?
+  generatedAt       DateTime?
   /// Why there's no summary: "not_enough_info", "refusal", "error".
-  failure     String?
-  /// Set once the learner and tutor have been emailed.
-  emailedAt   DateTime?
-  createdAt   DateTime  @default(now())
+  failure           String?
+  /// Set once the learner, tutor and (FYI) parent have been emailed.
+  emailedAt         DateTime?
+  /// Set when the weekly teacher digest has gone through this summary (sent or no teacher named).
+  teacherDigestedAt DateTime?
+  createdAt         DateTime  @default(now())
 
   session TutoringSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 }
@@ -560,6 +574,12 @@ model TranscriptSegment {
   session TutoringSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, at])
+}
+
+/// Teachers who turned off the weekly tutoring digest (from the signed link in the email).
+model DigestOptOut {
+  email     String   @id
+  createdAt DateTime @default(now())
 }
 
 /// Append-only record of a student's privacy choices, with the wording version they saw.

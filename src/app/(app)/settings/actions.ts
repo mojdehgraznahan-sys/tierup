@@ -5,6 +5,7 @@ import type { z } from "zod";
 import { toActionResult } from "@/server/errors";
 import { requireOnboarded } from "@/server/policies/session";
 import * as p from "@/server/services/profile";
+import type { ClassInfo } from "@/lib/validation/onboarding";
 
 async function run<T extends { toast: string }>(fn: (userId: string) => Promise<T>) {
   const user = await requireOnboarded();
@@ -39,4 +40,10 @@ export async function removeTutorSubjectAction(tutorSubjectId: string) {
 }
 export async function updateParentAction(input: z.input<typeof p.parentSchema>) {
   return run((id) => p.updateParent(id, input));
+}
+export async function updateLearnerClassAction(subjectId: string, input: ClassInfo) {
+  return run((id) => p.updateLearnerClass(id, subjectId, input));
+}
+export async function updateParentFyiAction(input: z.input<typeof p.parentFyiSchema>) {
+  return run((id) => p.updateParentFyi(id, input));
 }

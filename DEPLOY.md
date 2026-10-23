@@ -169,10 +169,16 @@ gcloud scheduler jobs create http tierup-hours-digest --location=$REGION \
   --uri="$APP_URL/api/cron/hours-digest" --http-method=GET \
   --headers="Authorization=Bearer $CRON_SECRET"
 
+gcloud scheduler jobs create http tierup-teacher-digest --location=$REGION \
+  --schedule="0 7 * * 1" --time-zone="America/New_York" \
+  --uri="$APP_URL/api/cron/teacher-digest" --http-method=GET \
+  --headers="Authorization=Bearer $CRON_SECRET"
+
 gcloud scheduler jobs run tierup-frequent --location=$REGION   # try it now
 ```
 
-The frequent job covers session reminders, request expiry, ending Meets, report alerts and unread-message
+The teacher digest emails each class teacher (named by learners in Settings) the week's AI session
+summaries on Monday mornings; teachers can turn it off from the email. The frequent job covers session reminders, request expiry, ending Meets, report alerts and unread-message
 emails. Every job is idempotent. Note the secret is stored in the job's config, which project admins can see.
 
 ## 10. Google Meet (one-time links, keyless)

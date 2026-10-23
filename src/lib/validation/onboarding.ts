@@ -21,6 +21,14 @@ export const customName = (key: string) => key.slice("custom:".length);
 const email = z.string().trim().toLowerCase().email("Enter a valid email address");
 export const emailDomain = (address: string) => address.trim().toLowerCase().split("@")[1] ?? "";
 
+/** Optional class details for a subject a learner wants help with (their teacher gets a weekly digest). */
+export const classInfoSchema = z.object({
+  className: z.string().trim().max(60, "Keep the class name under 60 characters").optional(),
+  teacherName: z.string().trim().max(80, "Keep the teacher's name under 80 characters").optional(),
+  teacherEmail: z.union([email, z.literal("")]).optional(),
+});
+export type ClassInfo = z.input<typeof classInfoSchema>;
+
 export const onboardingSchema = z
   .object({
     role: z.enum(["learner", "tutor"]),
@@ -43,7 +51,9 @@ export const onboardingSchema = z
       .array(z.enum(["before_school", "lunch", "after_school", "evening", "weekend"]))
       .min(1, "Pick at least one time you're usually free"),
     format: z.enum(["in_person", "online", "both"]),
-    // Only used while parent consent is switched on (PARENT_CONSENT=true).
+    // Learners only: optional class and teacher per subject (subject key → details).
+    classes: z.record(z.string(), classInfoSchema).default({}),
+    // Required while parent consent is on (PARENT_CONSENT=true); otherwise optional, for FYI summaries.
     parentEmail: z.union([email, z.literal("")]).optional(),
     sendSummaries: z.boolean().default(true),
   })

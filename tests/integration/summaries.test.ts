@@ -100,7 +100,7 @@ describe("summarizing", () => {
     const summary = await db.sessionSummary.findUniqueOrThrow({ where: { sessionId: w.sessionId } });
     expect(summary).toMatchObject({ topics: ["Factoring trinomials", "Difference of squares"], model: "fake", generatedAt: AFTER, failure: null });
     expect(summary.emailedAt).not.toBeNull();
-    expect(sent.map((e) => e.to).sort()).toEqual(["lea@home.test", "tom@home.test"]);
+    expect(sent.map((e) => e.to).sort()).toEqual(["lea@home.test", "parent+lea@home.test", "tom@home.test"]); // parent: FYI (consent on, summaries chosen)
     expect(sent[0]!.text).toMatch(/Factoring trinomials/);
 
     expect(await summarizeSessions(NEXT_DAY)).toEqual({});

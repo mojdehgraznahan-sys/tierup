@@ -2,8 +2,9 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
 import { sendEmailSafely } from "@/server/email/send";
-import { aiSessionSummaryEmail } from "@/server/email/templates";
+import { aiSessionSummaryEmail, aiSessionSummaryParentEmail } from "@/server/email/templates";
 import { getSummarizer } from "@/server/integrations/summarizer";
+import { parentFyiRecipient, parentOptOutToken } from "@/server/services/parent-fyi";
 import { sessionWhen } from "@/server/services/sessions";
 import { transcriptLines } from "@/server/services/transcripts";
 import { displayName } from "@/lib/names";
@@ -76,7 +77,7 @@ export async function summarizeSession(sessionId: string, now = new Date()): Pro
     include: {
       subject: true,
       tutor: { select: { name: true, email: true } },
-      learner: { select: { name: true, email: true, school: { include: { slots: true } } } },
+      learner: { select: { id: true, name: true, email: true, parentEmail: true, parentSummariesOff: true, consent: true, school: { include: { slots: true } } } },
     },
   });
   // The latest messages up to a day after the session (pre-booking chat included), oldest first.
@@ -120,6 +121,21 @@ export async function summarizeSession(sessionId: string, now = new Date()): Pro
     aiSessionSummaryEmail({ to, otherName, subject: s.subject.name, when, topics: result.topics, nextSteps: result.nextSteps, url });
   await sendEmailSafely(email(s.learner.email, displayName(s.tutor.name)));
   await sendEmailSafely(email(s.tutor.email, displayName(s.learner.name)));
+  const parent = parentFyiRecipient(s.learner);
+  if (parent) {
+    await sendEmailSafely(
+      aiSessionSummaryParentEmail({
+        to: parent,
+        studentName: displayName(s.learner.name),
+        tutorName: displayName(s.tutor.name),
+        subject: s.subject.name,
+        when,
+        topics: result.topics,
+        nextSteps: result.nextSteps,
+        stopUrl: `${appUrl()}/parent-updates/${await parentOptOutToken(s.learner.id)}`,
+      }),
+    );
+  }
   await db.sessionSummary.update({ where: { sessionId }, data: { emailedAt: new Date() } });
   return "done";
 }

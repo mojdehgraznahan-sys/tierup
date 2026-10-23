@@ -5,6 +5,7 @@ import { UserError } from "@/server/errors";
 import { sendEmailSafely } from "@/server/email/send";
 import { sessionCancelledEmail, sessionConfirmedEmail, sessionSummaryEmail } from "@/server/email/templates";
 import { getMeetProvider } from "@/server/integrations/meet";
+import { getSummarizer } from "@/server/integrations/summarizer";
 import { sessionWhen } from "@/server/services/sessions";
 import { parentEmailFor } from "@/server/policies/rules";
 import { displayName } from "@/lib/names";
@@ -93,7 +94,8 @@ export async function completeAndReview(learnerId: string, sessionId: string, ra
       sessionConfirmedEmail({ to: s.tutor.email, learnerName, subject: s.subject.name, when: when(s), hours, url: `${appUrl()}/dashboard` }),
     );
   }
-  const summaryTo = s.learner.consent?.sendSummaries ? parentEmailFor(s.learner.consent) : null;
+  // With AI summaries on, the parent gets the AI summary as an FYI instead (summaries.ts).
+  const summaryTo = s.learner.consent?.sendSummaries && !s.learner.parentSummariesOff && !(await getSummarizer()) ? parentEmailFor(s.learner.consent) : null;
   if (summaryTo) {
     await sendEmailSafely(
       sessionSummaryEmail({
