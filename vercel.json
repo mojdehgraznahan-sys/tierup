@@ -7,7 +7,6 @@
     "src/app/api/cron/[job]/route.ts": { "maxDuration": 120 }
   },
   "crons": [
-    { "path": "/api/cron/all", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/hours-digest", "schedule": "0 12 * * 1-5" },
     { "path": "/api/cron/teacher-digest", "schedule": "0 12 * * 1" }
   ]
